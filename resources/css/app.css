@@ -1,11 +1,63 @@
-@import 'tailwindcss';
+@import 'bootstrap/dist/css/bootstrap.min.css';
+/* Import Bootstrap Icons */
+@import url("[https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css](https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css)");
 
-@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
-@source '../../storage/framework/views/*.php';
-@source '../**/*.blade.php';
-@source '../**/*.js';
+/* SYNERIA CORPORATE IDENTITY */
+:root {
+    --syneria-green: #7AB800; /* "Syneria Green" */
+    --syneria-charcoal: #59595B; /* "Charcoal Grey" */
+    --syneria-white: #FFFFFF;
+}
 
-@theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+/* GLOBAL TYPOGRAPHY STANDARD */
+body {
+    font-family: 'Verdana', sans-serif !important;
+    font-size: 10pt !important;
+    color: var(--syneria-charcoal);
+}
+
+/* UTILITIES */
+.bg-syneria-green { background-color: var(--syneria-green) !important; }
+.text-syneria-green { color: var(--syneria-green) !important; }
+.bg-syneria-charcoal { background-color: var(--syneria-charcoal) !important; }
+
+.btn-syneria-primary {
+    background-color: var(--syneria-green);
+    color: white;
+    border: none;
+    font-weight: bold;
+}
+.btn-syneria-primary:hover {
+    background-color: #6a9e00; /* Slightly darker green for hover */
+    color: white;
+}
+
+/* Nav Specifics from uploaded layout */
+.navbar-custom {
+    background-color: var(--syneria-charcoal) !important;
+}
+.nav-link {
+    color: rgba(255,255,255,0.85) !important;
+}
+.nav-link:hover, .nav-link.active {
+    color: #fff !important;
+}
+.nav-link.active {
+    border-bottom: 3px solid var(--syneria-green);
+}
+
+/* LOGO HANDLING */
+.navbar-brand img {
+    height: 35px; /* Adjust based on your logo's aspect ratio */
+    width: auto;
+    object-fit: contain;
+}
+
+/* Screen Utilities */
+.screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+.login-box { max-width: 400px; padding: 2rem; background: #f7f7f7; border-radius: 0.5rem; }
+
+/* Ensure wide ledgers don't break layout */
+.table-responsive {
+    overflow-x: auto;
 }

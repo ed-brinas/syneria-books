@@ -6,11 +6,16 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\Concerns\HasUuids; // Required for UUIDs
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, HasUuids;
+
+    // CRITICAL: Ensure UUIDs are handled as strings, not integers
+    public $incrementing = false;
+    protected $keyType = 'string';
 
     /**
      * The attributes that are mass assignable.
@@ -20,7 +25,13 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
+        'email_hash',
         'password',
+        'tenant_id',
+        'first_name',
+        'last_name',
+        'phone',
+        'position',
     ];
 
     /**
@@ -31,6 +42,7 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'email_hash',
     ];
 
     /**
@@ -43,6 +55,28 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'name' => 'encrypted',
+            'first_name' => 'encrypted',
+            'last_name' => 'encrypted',
+            'phone' => 'encrypted',
+            'email' => 'encrypted',
         ];
+    }
+
+    /**
+     * Boot function to handle automatic hashing of email.
+     */
+    protected static function booted(): void
+    {
+        static::saving(function ($user) {
+            if ($user->isDirty('email')) {
+                $user->email_hash = hash_hmac('sha256', $user->email, config('app.key'));
+            }
+        });
+    }
+
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class);
     }
 }
