@@ -1,4 +1,4 @@
-{{-- layouts/app.blade.php (Livewire Adapter) --}}
+{{-- resources/views/components/layouts/app.blade.php --}}
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
@@ -19,9 +19,9 @@
 </head>
 <body class="bg-light">
 
-    @include('layouts.partials.spinner')
-    @include('layouts.partials.error-screen')
-    @include('layouts.partials.nav')
+    @include('components.layouts.partials.spinner')
+    @include('components.layouts.partials.error-screen')
+    @include('components.layouts.partials.nav')
 
     {{-- Main Content --}}
     <main class="container-fluid py-4">

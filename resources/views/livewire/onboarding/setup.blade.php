@@ -107,7 +107,7 @@
                     </div>
 
                     <div class="d-grid mt-4">
-                        <button type="submit" class="btn btn-success btn-lg text-white">Start Using SyneriaBooks</button>
+                        <button type="submit" class="btn btn-primary btn-lg">Start Using SyneriaBooks</button>
                     </div>
                 </form>
             </div>

@@ -32,18 +32,19 @@ body {
     color: white;
 }
 
-/* Nav Specifics from uploaded layout */
+/* Nav Specifics */
 .navbar-custom {
     background-color: var(--syneria-charcoal) !important;
 }
 .nav-link {
     color: rgba(255,255,255,0.85) !important;
+    font-weight: 500;
+    padding: 1rem 0.8rem !important;
 }
 .nav-link:hover, .nav-link.active {
     color: #fff !important;
-}
-.nav-link.active {
-    border-bottom: 3px solid var(--syneria-green);
+    background-color: var(--syneria-green);
+    border-radius: 4px;
 }
 
 /* LOGO HANDLING */
