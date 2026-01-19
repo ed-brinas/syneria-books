@@ -2,30 +2,25 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Models\Traits\BelongsToTenant;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Database\Eloquent\Concerns\HasUuids; // Required for UUIDs
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable, HasUuids;
-
-    // CRITICAL: Ensure UUIDs are handled as strings, not integers
-    public $incrementing = false;
-    protected $keyType = 'string';
+    use HasFactory, HasUuids, Notifiable, BelongsToTenant;
 
     /**
      * The attributes that are mass assignable.
      *
-     * @var list<string>
+     * @var array<int, string>
      */
     protected $fillable = [
         'name',
         'email',
-        'email_hash',
+        'email_hash', 
         'password',
         'tenant_id',
         'first_name',
@@ -37,7 +32,7 @@ class User extends Authenticatable
     /**
      * The attributes that should be hidden for serialization.
      *
-     * @var list<string>
+     * @var array<int, string>
      */
     protected $hidden = [
         'password',
@@ -55,28 +50,21 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
-            'name' => 'encrypted',
-            'first_name' => 'encrypted',
-            'last_name' => 'encrypted',
-            'phone' => 'encrypted',
-            'email' => 'encrypted',
+            'email' => 'encrypted', 
         ];
     }
 
     /**
-     * Boot function to handle automatic hashing of email.
+     * The "booted" method of the model.
      */
-    protected static function booted(): void
+    protected static function boot()
     {
+        parent::boot();
+
         static::saving(function ($user) {
-            if ($user->isDirty('email')) {
-                $user->email_hash = hash_hmac('sha256', $user->email, config('app.key'));
+            if ($user->isDirty('email') && !empty($user->email)) {
+                $user->email_hash = hash_hmac('sha256', strtolower($user->email), config('app.key'));
             }
         });
-    }
-
-    public function tenant(): BelongsTo
-    {
-        return $this->belongsTo(Tenant::class);
     }
 }

@@ -1,0 +1,92 @@
+/* * SyneriaBooks Production Styles
+ * Strict adherence to Verdana 10pt for financial data density.
+ */
+
+/* --- Typography & Global Defaults --- */
+body {
+    font-family: 'Verdana', sans-serif;
+    font-size: 10pt;
+    background-color: #f8f9fa; /* Light grey background for contrast */
+    color: #333;
+    line-height: 1.5;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: 'Verdana', sans-serif;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin-bottom: 0.5rem;
+}
+
+/* Force standard sizing on interactive elements */
+.form-control, 
+.btn, 
+.nav-link, 
+.dropdown-item,
+.table {
+    font-size: 10pt !important;
+}
+
+/* --- Layout: Authentication --- */
+.auth-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 1rem;
+}
+
+.login-box {
+    width: 100%;
+    max-width: 400px;
+    padding: 2rem;
+    background-color: #ffffff;
+    border: 1px solid #e9ecef;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+}
+
+/* --- Layout: Navigation --- */
+.navbar-brand {
+    font-size: 1.1rem;
+    letter-spacing: -0.5px;
+}
+
+/* --- Component: Financial Ledgers (12-Column Support) --- */
+/* Reduces padding to fit more data on screen without horizontal scrolling */
+.table-tight th, 
+.table-tight td {
+    padding: 0.4rem 0.5rem;
+    white-space: nowrap; /* Prevent wrapping on numbers */
+}
+
+.table-tight th {
+    background-color: #f1f3f5;
+    font-weight: 600;
+    font-size: 9pt; /* Slightly smaller headers for density */
+    text-transform: uppercase;
+    color: #6c757d;
+}
+
+/* Numbers in ledgers should always align right */
+.text-amount {
+    text-align: right;
+    font-family: 'Courier New', Courier, monospace; /* Monospaced for alignment */
+}
+
+/* --- Utility: Letter Spacing --- */
+/* Used for OTP inputs */
+.letter-spacing-2 {
+    letter-spacing: 2px;
+}
+
+/* --- Utility: Card Overrides --- */
+.card {
+    border: 1px solid #e9ecef;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.card-header {
+    background-color: #ffffff;
+    border-bottom: 1px solid #e9ecef;
+}

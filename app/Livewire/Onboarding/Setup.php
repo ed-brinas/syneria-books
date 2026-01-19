@@ -7,7 +7,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Livewire\Component;
-use Symfony\Component\Intl\Countries; // Uses standard ISO country list
+use Symfony\Component\Intl\Countries;
+use Database\Seeders\ChartOfAccountsSeeder;
 
 class Setup extends Component
 {
@@ -25,6 +26,7 @@ class Setup extends Component
     public $business_address = '';
     public $city = '';
     public $postal_code = '';
+    public $import_coa = true; 
 
     protected $rules = [
         'first_name' => 'required|string|max:50',
@@ -40,6 +42,7 @@ class Setup extends Component
         'business_address' => 'required|string|max:500',
         'city' => 'required|string|max:100',
         'postal_code' => 'required|string|max:20',
+        'import_coa' => 'boolean',
     ];
 
     public function mount()
@@ -109,8 +112,8 @@ class Setup extends Component
                 'company_reg_number' => $this->company_reg_number,
                 'tax_identification_number' => $this->tax_identification_number,
                 'business_address' => $this->business_address,
-                'city' => $this->city, // Added
-                'postal_code' => $this->postal_code, // Added
+                'city' => $this->city, 
+                'postal_code' => $this->postal_code, 
                 'business_type' => $this->business_type,
                 'country' => $this->country,
                 'subscription_plan' => 'free',
@@ -127,6 +130,26 @@ class Setup extends Component
                 'position' => $this->position,
                 'tenant_id' => $tenant->id,
             ]);
+
+            // 3. Optional Seeding of Chart of Accounts
+            if ($this->import_coa && Auth::user()->tenant_id) {
+                $seeder = new ChartOfAccountsSeeder();
+                // Since the seeder detects Auth::user()->tenant, and we just assigned it, it should work.
+                // However, user relationship might not be refreshed in memory yet, 
+                // so the seeder logic of fetching Auth::user()->tenant might fail if it relies on a stale instance.
+                // The seeder we wrote earlier relies on Auth::user()->tenant OR default.
+                // Since we are inside a transaction and request cycle, Auth::user() is still the object from start of request.
+                
+                // To be safe, we refresh the user instance or let the seeder logic handle it. 
+                // BUT, our seeder logic: "$tenant = Auth::user()?->tenant ?? Tenant::first();"
+                // Auth::user()->tenant relationship might return null because the relation is cached on the model instance.
+                
+                // FORCE REFRESH relation
+                $user->load('tenant'); 
+                
+                // Run seeder
+                $seeder->run(); 
+            }
         });
 
         return redirect()->route('dashboard');
@@ -134,6 +157,6 @@ class Setup extends Component
 
     public function render()
     {
-        return view('livewire.onboarding.setup')->layout('components.layouts.app', ['title' => 'Setup Organization']);
+        return view('livewire.onboarding.setup')->layout('layouts.app', ['title' => 'Setup Organization']);
     }
 }

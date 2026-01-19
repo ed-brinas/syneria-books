@@ -47,7 +47,7 @@ class Login extends Component
         
         // SEND VIA AMAZON SES
         try {
-            //Mail::to($this->email)->send(new LoginOtp($code));
+            //Mail::to($this->email)->send(new LoginOtp($code)); //Uncomment on Production
             Log::info('Your OTP is: '. $code);
             $this->step = 2;
         } catch (\Exception $e) {
@@ -113,6 +113,6 @@ class Login extends Component
 
     public function render()
     {
-        return view('livewire.auth.login')->layout('components.layouts.app', ['title' => 'Sign In - SyneriaBooks']);
+        return view('livewire.auth.login')->layout('layouts.app', ['title' => 'Sign In - SyneriaBooks']);
     }
 }
