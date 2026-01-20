@@ -4,6 +4,7 @@ namespace App\Livewire\Auth;
 
 use App\Mail\LoginOtp;
 use App\Models\User;
+use App\Models\ActivityLog;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
@@ -97,7 +98,20 @@ class Login extends Component
             if (!$user->tenant_id) {
                 return redirect()->route('onboarding');
             }
-            
+
+            // Activity Log (Only if user belongs to a tenant)
+            if ($user->tenant_id) {
+                ActivityLog::create([
+                    'tenant_id' => $user->tenant_id,
+                    'user_id' => $user->id,
+                    'action' => 'login',
+                    'description' => 'User logged in via OTP',
+                    'subject_type' => User::class,
+                    'subject_id' => $user->id,
+                    'ip_address' => request()->ip(),
+                ]);
+            }
+                        
             return redirect()->route('dashboard');
         } else {
             // New User -> Create background account -> Redirect Onboarding

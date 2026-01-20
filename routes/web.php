@@ -6,6 +6,8 @@ use App\Livewire\Onboarding\Setup;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\JournalEntryController;
+use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\ContactController;
 
 // Public Route (Entry Point)
 Route::get('/', Login::class)->name('login')->middleware('guest');
@@ -22,12 +24,24 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/onboarding', Setup::class)->name('onboarding');
     
     // Main App Dashboard
-    // Uses the Controller logic we created, but at your preferred path
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
-    // Phase 2: Core GL Routes
+    // Core GL Routes
     Route::resource('accounts', AccountController::class);
     Route::resource('journals', JournalEntryController::class);
+    
+    // Sales & Purchases (Invoices/Bills)
+    Route::resource('invoices', InvoiceController::class);
+    Route::post('/invoices/{invoice}/void', [InvoiceController::class, 'void'])->name('invoices.void');
+    Route::get('/invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
+
+    // Contacts
+    Route::resource('contacts', ContactController::class);
+    Route::post('/contacts/{id}/restore', [ContactController::class, 'restore'])->name('contacts.restore');
+
+    // Compliance Actions (Journals)
+    Route::post('/journals/{journal}/void', [JournalEntryController::class, 'void'])->name('journals.void');
+    Route::get('/journals/{journal}/reverse', [JournalEntryController::class, 'reverse'])->name('journals.reverse');
     
     // Logout Action
     Route::post('/logout', function () {

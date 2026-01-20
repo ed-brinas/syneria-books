@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Account;
+use App\Models\ActivityLog;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Auth;
@@ -40,9 +41,20 @@ class AccountController extends Controller
         ]);
 
         $account = new Account($validated);
-        // Explicitly assigning tenant_id for strict compliance
         $account->tenant_id = auth()->user()->tenant_id; 
         $account->save();
+
+        // Activity Log
+        ActivityLog::create([
+            'tenant_id' => auth()->user()->tenant_id,
+            'user_id' => auth()->id(),
+            'action' => 'created',
+            'description' => "Created Account: {$account->code} - {$account->name}",
+            'subject_type' => Account::class,
+            'subject_id' => $account->id,
+            'ip_address' => $request->ip(),
+            'properties' => $account->toArray(),
+        ]);
 
         return redirect()->route('accounts.index')->with('success', 'Account created successfully.');
     }
@@ -80,6 +92,21 @@ class AccountController extends Controller
 
         $account->update($validated);
 
+        // Activity Log
+        ActivityLog::create([
+            'tenant_id' => auth()->user()->tenant_id,
+            'user_id' => auth()->id(),
+            'action' => 'updated',
+            'description' => "Updated Account: {$account->code} - {$account->name}",
+            'subject_type' => Account::class,
+            'subject_id' => $account->id,
+            'ip_address' => $request->ip(),
+            'properties' =>[
+                'old' => $originalData,
+                'new' => $account->fresh()->toArray()
+            ],
+        ]);
+
         return redirect()->route('accounts.index')->with('success', 'Account updated successfully.');
     }
 
@@ -100,6 +127,17 @@ class AccountController extends Controller
 
         // 2. Soft Delete Logic: Set is_active to 0
         $account->update(['is_active' => false]);
+
+        // Activity Log
+        ActivityLog::create([
+            'tenant_id' => auth()->user()->tenant_id,
+            'user_id' => auth()->id(),
+            'action' => 'deactivated',
+            'description' => "Deactivated Account: {$account->code} - {$account->name}",
+            'subject_type' => Account::class,
+            'subject_id' => $account->id,
+            'ip_address' => request()->ip(),
+        ]);
 
         return redirect()->route('accounts.index')->with('success', 'Account deactivated successfully.');
     }

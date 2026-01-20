@@ -80,27 +80,27 @@
                         <div class="row g-3 mb-4">
                             <div class="col-md-6">
                                 <label class="form-label">Company Registration Number</label>
-                                <input type="text" wire:model="company_reg_number" class="form-control" placeholder="000-000-000-000">
+                                <input type="text" wire:model="company_reg_number" class="form-control" placeholder="e.g. 000-000-000-000">
                                 @error('company_reg_number') <span class="text-danger small">{{ $message }}</span> @enderror
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Tax Identification Number</label>
-                                <input type="text" wire:model="tax_identification_number" class="form-control" placeholder="000-000-000-000">
+                                <input type="text" wire:model="tax_identification_number" class="form-control" placeholder="e.g. 000-000-000-000">
                                 @error('tax_identification_number') <span class="text-danger small">{{ $message }}</span> @enderror
                             </div>
                             <div class="col-md-12">
                                 <label class="form-label">Registered Business Address</label>
-                                <textarea wire:model="business_address" class="form-control" rows="2" placeholder="47 W 13th St"></textarea>
+                                <textarea wire:model="business_address" class="form-control" rows="2" placeholder="e.g. 47 W 13th St"></textarea>
                                 @error('business_address') <span class="text-danger small">{{ $message }}</span> @enderror
                             </div>
                             <div class="col-md-8">
                                 <label class="form-label">City / Municipality</label>
-                                <input type="text" wire:model="city" class="form-control" placeholder="New York">
+                                <input type="text" wire:model="city" class="form-control" placeholder="e.g. New York">
                                 @error('city') <span class="text-danger small">{{ $message }}</span> @enderror
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Postal Code</label>
-                                <input type="number" wire:model="postal_code" class="form-control" placeholder="10011">
+                                <input type="number" wire:model="postal_code" class="form-control" placeholder="e.g. 10011">
                                 @error('postal_code') <span class="text-danger small">{{ $message }}</span> @enderror
                             </div>
                             

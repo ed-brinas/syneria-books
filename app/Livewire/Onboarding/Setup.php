@@ -9,6 +9,7 @@ use Illuminate\Support\Str;
 use Livewire\Component;
 use Symfony\Component\Intl\Countries;
 use Database\Seeders\ChartOfAccountsSeeder;
+use App\Models\ActivityLog;
 
 class Setup extends Component
 {
@@ -150,6 +151,18 @@ class Setup extends Component
                 // Run seeder
                 $seeder->run(); 
             }
+
+            // 5. Activity Log (Onboarding Completion)
+            ActivityLog::create([
+                'tenant_id' => $tenant->id,
+                'user_id' => $user->id,
+                'action' => 'created',
+                'description' => "Completed Onboarding - Created Organization: {$tenant->company_name}",
+                'subject_type' => Tenant::class,
+                'subject_id' => $tenant->id,
+                'ip_address' => request()->ip(),
+                'properties' => $tenant->toArray(), 
+            ]);           
         });
 
         return redirect()->route('dashboard');
