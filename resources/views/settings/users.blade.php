@@ -7,7 +7,7 @@
         
         <!-- Invite Form -->
         <div class="d-flex gap-2">
-            <input type="email" wire:model="inviteEmail" class="form-control" placeholder="Enter email to invite...">
+            <input type="email" wire:model="inviteEmail" class="form-control" placeholder="Enter email to invite..." required>
             <button wire:click="inviteUser" class="btn btn-primary text-nowrap">
                 <i class="bi bi-send me-1"></i> Invite User
             </button>
