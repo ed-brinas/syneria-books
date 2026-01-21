@@ -3,12 +3,13 @@
 use Illuminate\Support\Facades\Route;
 use App\Livewire\Auth\Login;
 use App\Livewire\Onboarding\Setup;
-use App\Livewire\Settings\TenantAccess; 
+use App\Http\Controllers\TenantAccessController; 
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\JournalEntryController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\ContactController;
+use App\Http\Controllers\ProfileController;
 
 // Public Route (Entry Point)
 Route::get('/', Login::class)->name('login')->middleware('guest');
@@ -24,8 +25,29 @@ Route::middleware(['auth'])->group(function () {
     // Onboarding (For users without a Tenant)
     Route::get('/onboarding', Setup::class)->name('onboarding');
 
-    // Settings & Administration (RBAC)
-    Route::get('/settings/users', TenantAccess::class)->name('settings.users');    
+    // --- Settings & Administration ---
+    Route::prefix('settings')->name('settings.')->group(function() {
+        
+        // Profile Routes (settings.profile.*)
+        Route::controller(ProfileController::class)->prefix('profile')->name('profile.')->group(function() {
+            Route::get('/', 'edit')->name('edit');
+            Route::put('/', 'update')->name('update');
+            
+            // MFA Routes
+            Route::post('/mfa/setup', 'setupMfa')->name('mfa.setup');
+            Route::post('/mfa/enable', 'enableMfa')->name('mfa.enable');
+            Route::delete('/mfa/disable', 'disableMfa')->name('mfa.disable');
+            Route::post('/mfa/regenerate-codes', 'regenerateRecoveryCodes')->name('mfa.regenerate_codes');
+        });
+
+        // User Management (settings.users.*)
+        Route::prefix('users')->name('users.')->group(function() {
+            Route::get('/', [TenantAccessController::class, 'index'])->name('index');
+            Route::post('/invite', [TenantAccessController::class, 'invite'])->name('invite');
+            Route::put('/{user}', [TenantAccessController::class, 'update'])->name('update');
+            Route::patch('/{user}/toggle', [TenantAccessController::class, 'toggleStatus'])->name('toggle');
+        });
+    }); 
     
     // Main App Dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');

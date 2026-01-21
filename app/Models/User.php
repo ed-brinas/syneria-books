@@ -29,6 +29,10 @@ class User extends Authenticatable
         'position',
         'role', 
         'status',
+        'profile_photo_path',
+        'mfa_enabled',
+        'mfa_secret',
+        'mfa_recovery_codes',   
         'last_login_at',        
     ];
 
@@ -41,6 +45,8 @@ class User extends Authenticatable
         'password',
         'remember_token',
         'email_hash',
+        'mfa_secret',
+        'mfa_recovery_codes',
     ];
 
     /**
@@ -58,7 +64,10 @@ class User extends Authenticatable
             'last_name' => 'encrypted',
             'name' => 'encrypted',
             'phone' => 'encrypted', 
-            'last_login_at' => 'datetime'
+            'last_login_at' => 'datetime',
+            'mfa_enabled' => 'boolean',
+            'mfa_recovery_codes' => 'encrypted:array',
+            'mfa_secret' => 'encrypted',
         ];
     }
 
@@ -74,5 +83,13 @@ class User extends Authenticatable
                 $user->email_hash = hash_hmac('sha256', strtolower($user->email), config('app.key'));
             }
         });
+    }
+
+    // Helper to get photo URL or default placeholder
+    public function getProfilePhotoUrlAttribute()
+    {
+        return $this->profile_photo_path
+            ? asset('storage/' . $this->profile_photo_path)
+            : 'https://ui-avatars.com/api/?name='.urlencode($this->first_name . ' ' . $this->last_name).'&color=7F9CF5&background=EBF4FF';
     }
 }

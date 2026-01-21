@@ -29,7 +29,7 @@ class LoginOtp extends Mailable
     public function content(): Content
     {
         return new Content(
-            view: 'emails.auth.otp',
+            view: 'emails.otp',
             with: [
                 'code' => $this->code, // Explicitly pass the variable to the view
             ],

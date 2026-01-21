@@ -58,12 +58,18 @@
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end text-small">
                         <li><h6 class="dropdown-header">{{ Auth::user()->tenant->company_name ?? 'My Organization' }}</h6></li>
+                        <li><hr class="dropdown-divider"></li>
+                        
+                        {{-- UPDATED PROFILE LINK --}}
+                        <li><a class="dropdown-item" href="{{ route('settings.profile.edit') }}">Profile & Security</a></li>
+                        
                         {{-- ADMIN ONLY LINKS --}}
                         @if(Auth::user()->role === 'SuperAdministrator')
-                            <li><a class="dropdown-item" href="{{ route('settings.users') }}">Tenant Access</a></li>
-                            <li><a class="dropdown-item" href="#">Settings</a></li>
-                            <li><a class="dropdown-item" href="#">Billing</a></li>
                             <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#">Billing</a></li>
+                            <li><a class="dropdown-item" href="#">Company Profile</a></li>
+                            <li><a class="dropdown-item" href="{{ route('settings.users.index') }}">Users & Access Profile</a></li>
+                            <li><a class="dropdown-item" href="{{ route('settings.users.index') }}">Audit Trail</a></li>
                         @endif
                         <li><hr class="dropdown-divider"></li>
                         <li>

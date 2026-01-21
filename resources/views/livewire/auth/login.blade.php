@@ -56,6 +56,48 @@
             </form>
         @endif
         
+        <!-- Step 3: MFA / Google Authenticator Verification -->
+        @if($step === 3)
+            <div class="alert alert-warning py-2 small">
+                <i class="bi bi-shield-lock-fill me-1"></i> 
+                {{ $usingRecoveryCode ? 'Enter one of your emergency recovery codes.' : 'Two-Factor Authentication required.' }}
+            </div>
+
+            <form wire:submit.prevent="verifyMfa">
+                <div class="mb-3">
+                    <label for="mfaCode" class="form-label fw-bold">
+                        {{ $usingRecoveryCode ? 'Recovery Code' : 'Authenticator Code' }}
+                    </label>
+
+                    <input type="text" 
+                           wire:model="mfaCode" 
+                           class="form-control form-control-lg text-center letter-spacing-2" 
+                           placeholder="{{ $usingRecoveryCode ? 'XXXXXXXXXX' : '000000' }}" 
+                           @if(!$usingRecoveryCode) maxlength="6" inputmode="numeric" @endif
+                           required autofocus>
+
+                    @error('mfaCode') <span class="text-danger small">{{ $message }}</span> @enderror
+                </div>
+
+                <div class="d-grid mb-3">
+                    <button type="submit" class="btn btn-primary btn-lg" wire:loading.attr="disabled">
+                        <span wire:loading.remove wire:target="verifyMfa">Complete Secure Login</span>
+                        <span wire:loading wire:target="verifyMfa">Verifying...</span>
+                    </button>
+                </div>
+                
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                    <button type="button" wire:click="$set('step', 1)" class="btn btn-link btn-sm text-decoration-none text-muted p-0">
+                        &larr; Back to Login
+                    </button>
+
+                    <button type="button" wire:click="toggleRecovery" class="btn btn-link btn-sm text-decoration-none p-0">
+                        {{ $usingRecoveryCode ? 'Use Authenticator App' : 'Use Recovery Code' }}
+                    </button>
+                </div>
+            </form>
+        @endif
+
         <div class="mt-4 text-center text-muted small">
             &copy; {{ date('Y') }} @yield('title', 'SyneriaBooks').
         </div>
