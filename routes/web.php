@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Livewire\Auth\Login;
 use App\Livewire\Onboarding\Setup;
+use App\Livewire\Settings\TenantAccess; 
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\JournalEntryController;
@@ -22,6 +23,9 @@ Route::middleware(['auth'])->group(function () {
     
     // Onboarding (For users without a Tenant)
     Route::get('/onboarding', Setup::class)->name('onboarding');
+
+    // Settings & Administration (RBAC)
+    Route::get('/settings/users', TenantAccess::class)->name('settings.users');    
     
     // Main App Dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');

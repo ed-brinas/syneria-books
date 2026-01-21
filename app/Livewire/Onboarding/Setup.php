@@ -50,6 +50,8 @@ class Setup extends Component
     {
         // If user already has a tenant, kick them to dashboard
         if (Auth::user()->tenant_id) {
+            $user = Auth::user();
+            $user->update(['last_login_at' => now()]);        
             return redirect()->route('dashboard');
         }
     }
@@ -130,25 +132,15 @@ class Setup extends Component
                 'phone' => $this->phone,
                 'position' => $this->position,
                 'tenant_id' => $tenant->id,
+                'role' => 'SuperAdministrator',
+                'last_login_at' => now(),
+                'status' => 'active',
             ]);
 
             // 3. Optional Seeding of Chart of Accounts
             if ($this->import_coa && Auth::user()->tenant_id) {
                 $seeder = new ChartOfAccountsSeeder();
-                // Since the seeder detects Auth::user()->tenant, and we just assigned it, it should work.
-                // However, user relationship might not be refreshed in memory yet, 
-                // so the seeder logic of fetching Auth::user()->tenant might fail if it relies on a stale instance.
-                // The seeder we wrote earlier relies on Auth::user()->tenant OR default.
-                // Since we are inside a transaction and request cycle, Auth::user() is still the object from start of request.
-                
-                // To be safe, we refresh the user instance or let the seeder logic handle it. 
-                // BUT, our seeder logic: "$tenant = Auth::user()?->tenant ?? Tenant::first();"
-                // Auth::user()->tenant relationship might return null because the relation is cached on the model instance.
-                
-                // FORCE REFRESH relation
                 $user->load('tenant'); 
-                
-                // Run seeder
                 $seeder->run(); 
             }
 

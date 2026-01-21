@@ -27,6 +27,9 @@ class User extends Authenticatable
         'last_name',
         'phone',
         'position',
+        'role', 
+        'status',
+        'last_login_at',        
     ];
 
     /**
@@ -51,6 +54,11 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'email' => 'encrypted', 
+            'first_name' => 'encrypted', 
+            'last_name' => 'encrypted',
+            'name' => 'encrypted',
+            'phone' => 'encrypted', 
+            'last_login_at' => 'datetime'
         ];
     }
 

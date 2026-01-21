@@ -23,7 +23,10 @@ return new class extends Migration
             $table->string('email_hash')->unique()->index();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password')->nullable();
+            $table->string('status')->default('pending'); 
+            $table->string('role')->default('bookkeeper');                
             $table->rememberToken();
+            $table->timestamp('last_login_at')->nullable();                   
             $table->timestamps();
             $table->index(['tenant_id', 'email_hash']); 
         });

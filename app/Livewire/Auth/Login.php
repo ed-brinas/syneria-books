@@ -94,6 +94,9 @@ class Login extends Component
             // Existing User -> Login
             Auth::login($user);
             
+            // UPDATE LAST LOGIN
+            $user->update(['last_login_at' => now()]);
+            
             // If they registered but dropped off before onboarding
             if (!$user->tenant_id) {
                 return redirect()->route('onboarding');
@@ -118,9 +121,13 @@ class Login extends Component
             // The User model "booted" method handles the hash generation automatically
             $newUser = User::create([
                 'email' => $this->email,
+                'last_login_at' => now(), // Set initial login time
+                'role' => 'SuperAdministrator', // New signups are always Tenant Owners
+                'status' => 'active',
             ]);
             
             Auth::login($newUser);
+
             return redirect()->route('onboarding');
         }
     }
