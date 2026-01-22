@@ -8,15 +8,27 @@
         <h2 class="h4 text-dark fw-bold">Journal Entries</h2>
         
         <div class="d-flex gap-2">
-            {{-- Search Form --}}
-            <form action="{{ route('journals.index') }}" method="GET" class="d-flex">
+            {{-- Combined Filter & Search Form --}}
+            <form action="{{ route('journals.index') }}" method="GET" class="d-flex gap-2">
+                
+                {{-- Status Filter Dropdown --}}
+                <select name="status" class="form-select form-select-sm" onchange="this.form.submit()" style="min-width: 140px; border-color: #ced4da;">
+                    <option value="all" {{ request('status') == 'all' ? 'selected' : '' }}>All</option>
+                    <option value="draft" {{ request('status') == 'draft' ? 'selected' : '' }}>Draft</option>
+                    <option value="review" {{ request('status') == 'review' ? 'selected' : '' }}>For Review</option>
+                    <option value="reviewed" {{ request('status') == 'reviewed' ? 'selected' : '' }}>Reviewed</option>
+                    <option value="posted" {{ request('status') == 'posted' ? 'selected' : '' }}>Posted</option>
+                    <option value="voided" {{ request('status') == 'voided' ? 'selected' : '' }}>Voided</option>
+                </select>
+
                 <div class="input-group input-group-sm">
                     <input type="text" name="search" class="form-control" placeholder="Search entries..." value="{{ request('search') }}">
                     <button class="btn btn-outline-secondary" type="submit">
                         <i class="bi bi-search"></i>
                     </button>
-                    @if(request('search'))
-                        <a href="{{ route('journals.index') }}" class="btn btn-outline-secondary" title="Clear Search">
+                    {{-- Show Clear button if any filter is active --}}
+                    @if(request('search') || (request('status') && request('status') !== 'all'))
+                        <a href="{{ route('journals.index') }}" class="btn btn-outline-secondary" title="Clear All Filters">
                             <i class="bi bi-x-lg"></i>
                         </a>
                     @endif
@@ -63,6 +75,10 @@
                     </thead>
                     <tbody>
                         @forelse($entries as $entry)
+                        @php
+                            // Determine User Role for this specific loop iteration
+                            $userRole = strtolower(auth()->user()->role ?? '');
+                        @endphp
                         <tr>
                             <td class="ps-4">{{ $entry->date->format('Y-m-d') }}</td>
                             <td>
@@ -84,6 +100,10 @@
                             <td class="text-center">
                                 @if($entry->status === 'posted')
                                     <span class="badge bg-success-subtle text-success">Posted</span>
+                                @elseif($entry->status === 'reviewed')
+                                    <span class="badge bg-info-subtle text-info">Reviewed</span>
+                                @elseif($entry->status === 'review')
+                                    <span class="badge bg-warning-subtle text-warning">In Review</span>
                                 @elseif($entry->status === 'draft')
                                     <span class="badge bg-secondary-subtle text-secondary">Draft</span>
                                 @elseif($entry->status === 'voided')
@@ -102,48 +122,133 @@
                                             </a>
                                         </li>     
                                         <li><hr class="dropdown-divider"></li>                                   
-                                        {{-- Logic 1: Draft Actions --}}
-                                        @if($entry->status === 'draft')
-                                            <li><h6 class="dropdown-header">Draft Actions</h6></li>
-                                            <li>
-                                                <a class="dropdown-item" href="{{ route('journals.edit', $entry->id) }}">
-                                                    <i class="bi bi-pencil me-2"></i>Edit Draft
-                                                </a>
-                                            </li>
-                                            <li>
-                                                <button type="button" class="dropdown-item text-danger" 
-                                                    data-bs-toggle="modal" 
-                                                    data-bs-target="#confirmActionModal"
-                                                    data-action="{{ route('journals.destroy', $entry->id) }}"
-                                                    data-method="DELETE"
-                                                    data-title="Delete Draft"
-                                                    data-message="Are you sure you want to delete this draft permanently? This cannot be undone."
-                                                    data-confirm-text="Delete Draft">
-                                                    <i class="bi bi-trash me-2"></i>Delete Draft
-                                                </button>
-                                            </li>
                                         
-                                        {{-- Logic 2: Posted Actions --}}
+                                        {{-- 1. Draft Actions (Bookkeeper) --}}
+                                        @if($entry->status === 'draft')
+                                            {{-- Only Bookkeepers should see draft edit options --}}
+                                            @if($userRole === 'bookkeeper')
+                                                <li><h6 class="dropdown-header">Draft Actions</h6></li>
+                                                <li>
+                                                    <a class="dropdown-item" href="{{ route('journals.edit', $entry->id) }}">
+                                                        <i class="bi bi-pencil me-2"></i>Edit Draft
+                                                    </a>
+                                                </li>
+                                                <li>
+                                                    <button type="button" class="dropdown-item text-primary" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#confirmActionModal"
+                                                        data-action="{{ route('journals.submit', $entry->id) }}"
+                                                        data-method="POST"
+                                                        data-title="Submit for Review"
+                                                        data-message="Submit this draft for review? It will be validated by a reviewer."
+                                                        data-confirm-text="Submit">
+                                                        <i class="bi bi-arrow-right-circle me-2"></i>Submit for Review
+                                                    </button>
+                                                </li>
+                                                <li>
+                                                    <button type="button" class="dropdown-item text-danger" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#confirmActionModal"
+                                                        data-action="{{ route('journals.destroy', $entry->id) }}"
+                                                        data-method="DELETE"
+                                                        data-title="Delete Draft"
+                                                        data-message="Are you sure you want to delete this draft permanently?"
+                                                        data-confirm-text="Delete Draft">
+                                                        <i class="bi bi-trash me-2"></i>Delete Draft
+                                                    </button>
+                                                </li>
+                                            @else
+                                                <li><span class="dropdown-item-text text-muted small">Draft (Bookkeeper Only)</span></li>
+                                            @endif
+
+                                        {{-- 2. Review Actions (Reviewer) --}}
+                                        @elseif($entry->status === 'review')
+                                            @if($userRole === 'reviewer')
+                                                <li><h6 class="dropdown-header">Review Actions</h6></li>
+                                                <li>
+                                                    <button type="button" class="dropdown-item text-success" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#confirmActionModal"
+                                                        data-action="{{ route('journals.approve', $entry->id) }}"
+                                                        data-method="POST"
+                                                        data-title="Approve Journal"
+                                                        data-message="Mark this journal as Reviewed? It will proceed to the Posting stage."
+                                                        data-confirm-text="Approve">
+                                                        <i class="bi bi-check-circle me-2"></i>Approve
+                                                    </button>
+                                                </li>
+                                                <li>
+                                                    <button type="button" class="dropdown-item text-danger" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#confirmActionModal"
+                                                        data-action="{{ route('journals.reject', $entry->id) }}"
+                                                        data-method="POST"
+                                                        data-title="Reject Journal"
+                                                        data-message="Return this journal to Draft? This will unlock the entry for the Bookkeeper to make corrections."
+                                                        data-confirm-text="Reject to Draft">
+                                                        <i class="bi bi-x-circle me-2"></i>Reject
+                                                    </button>
+                                                </li>
+                                            @else
+                                                <li><span class="dropdown-item-text text-muted small">Pending Review</span></li>
+                                            @endif
+
+                                        {{-- 3. Reviewed Actions (Approver) --}}
+                                        @elseif($entry->status === 'reviewed')
+                                            @if($userRole === 'approver')
+                                                <li><h6 class="dropdown-header">Approval Actions</h6></li>
+                                                <li>
+                                                    <button type="button" class="dropdown-item text-primary fw-bold" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#confirmActionModal"
+                                                        data-action="{{ route('journals.post', $entry->id) }}"
+                                                        data-method="POST"
+                                                        data-title="Post to GL"
+                                                        data-message="Are you sure you want to Approve this entry? This will generate a Sequence Number and Lock the entry."
+                                                        data-confirm-text="Post Journal">
+                                                        <i class="bi bi-file-earmark-check me-2"></i>Approve & Post
+                                                    </button>
+                                                </li>
+                                                <li>
+                                                    <button type="button" class="dropdown-item text-danger" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#confirmActionModal"
+                                                        data-action="{{ route('journals.reject', $entry->id) }}"
+                                                        data-method="POST"
+                                                        data-title="Reject Journal"
+                                                        data-message="Return this journal to Draft? This will unlock the entry for corrections."
+                                                        data-confirm-text="Reject to Draft">
+                                                        <i class="bi bi-x-circle me-2"></i>Reject
+                                                    </button>
+                                                </li>
+                                            @else
+                                                <li><span class="dropdown-item-text text-muted small">Pending Approval</span></li>
+                                            @endif
+
+                                        {{-- 4. Posted Actions --}}
                                         @elseif($entry->status === 'posted')
-                                            <li><h6 class="dropdown-header">Compliance Actions</h6></li>
-                                            <li>
-                                                <a class="dropdown-item" href="{{ route('journals.reverse', $entry->id) }}">
-                                                    <i class="bi bi-arrow-counterclockwise me-2"></i>Reverse Entry
-                                                </a>
-                                            </li>
-                                            <li><hr class="dropdown-divider"></li>
-                                            <li>
-                                                <button type="button" class="dropdown-item text-danger" 
-                                                    data-bs-toggle="modal" 
-                                                    data-bs-target="#confirmActionModal"
-                                                    data-action="{{ route('journals.void', $entry->id) }}"
-                                                    data-method="POST"
-                                                    data-title="Void Entry"
-                                                    data-message="Voiding cannot be undone. The entry will remain in the system for audit purposes but amounts will be ignored. Proceed?"
-                                                    data-confirm-text="Void Entry">
-                                                    <i class="bi bi-slash-circle me-2"></i>Void Entry
-                                                </button>
-                                            </li>
+                                            @if($userRole === 'approver')
+                                                <li><h6 class="dropdown-header">Compliance Actions</h6></li>
+                                                <li>
+                                                    <a class="dropdown-item" href="{{ route('journals.reverse', $entry->id) }}">
+                                                        <i class="bi bi-arrow-counterclockwise me-2"></i>Reverse Entry
+                                                    </a>
+                                                </li>
+                                                <li>
+                                                    <button type="button" class="dropdown-item text-danger" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#confirmActionModal"
+                                                        data-action="{{ route('journals.void', $entry->id) }}"
+                                                        data-method="POST"
+                                                        data-title="Void Entry"
+                                                        data-message="Voiding cannot be undone. The entry will remain in the system for audit purposes but amounts will be ignored. Proceed?"
+                                                        data-confirm-text="Void Entry">
+                                                        <i class="bi bi-slash-circle me-2"></i>Void Entry
+                                                    </button>
+                                                </li>
+                                            @else
+                                                <li><span class="dropdown-item-text text-muted small">View Only</span></li>
+                                            @endif
                                         @endif
                                         
                                         @if($entry->status === 'voided')
@@ -167,7 +272,7 @@
         </div>
         @if($entries->hasPages())
         <div class="card-footer bg-white">
-            {{ $entries->appends(request()->query())->links() }} {{-- Use appends to keep search query in pagination links --}}
+            {{ $entries->appends(request()->query())->links() }} 
         </div>
         @endif
     </div>
@@ -187,9 +292,7 @@
             <div class="modal-footer">
                 <form id="confirmActionForm" method="POST" action="">
                     @csrf
-                    {{-- Hidden input for method spoofing (DELETE) --}}
                     <div id="methodInputContainer"></div>
-                    
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="submit" class="btn btn-danger" id="confirmActionSubmit">Confirm</button>
                 </form>
@@ -197,6 +300,35 @@
         </div>
     </div>
 </div>
+
+{{-- Error/Unauthorized Modal (New) --}}
+@if(session('error_modal'))
+<div class="modal fade" id="errorModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-bottom-0">
+                <h5 class="modal-title text-danger">
+                    <i class="bi bi-exclamation-octagon-fill me-2"></i>Access Denied
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body py-4 text-center">
+                <p class="mb-0 fs-5 text-secondary">{{ session('error_modal') }}</p>
+            </div>
+            <div class="modal-footer border-top-0 justify-content-center">
+                <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var errorModal = new bootstrap.Modal(document.getElementById('errorModal'));
+    errorModal.show();
+});
+</script>
+@endif
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {

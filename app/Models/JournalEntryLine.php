@@ -16,6 +16,8 @@ class JournalEntryLine extends Model
     protected $fillable = [
         'journal_entry_id',
         'account_id',
+        'tax_code_id',
+        'tax_amount',        
         'debit',
         'credit',
         'description'
@@ -24,6 +26,7 @@ class JournalEntryLine extends Model
     protected $casts = [
         'debit' => 'decimal:4',
         'credit' => 'decimal:4',
+        'tax_amount' => 'decimal:4',
     ];
 
     public function journalEntry(): BelongsTo
@@ -35,4 +38,10 @@ class JournalEntryLine extends Model
     {
         return $this->belongsTo(Account::class);
     }
+    
+    public function taxRate()
+    {
+        return $this->belongsTo(TaxRate::class, 'tax_code_id');
+    }
+
 }

@@ -11,7 +11,8 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str; 
 use PragmaRX\Google2FA\Google2FA;
 use App\Mail\MfaRecoveryCodes;
-use App\Models\ActivityLog; // Added ActivityLog model
+use App\Models\ActivityLog;
+
 
 class ProfileController extends Controller
 {
@@ -46,11 +47,21 @@ class ProfileController extends Controller
             'photo' => 'nullable|image|max:1024',
         ]);
 
+        /*
         if ($request->hasFile('photo')) {
             if ($user->profile_photo_path) {
                 Storage::disk('public')->delete($user->profile_photo_path);
             }
             $path = $request->file('photo')->store('profile-photos', 'public');
+            $user->profile_photo_path = $path;
+        }
+        */
+
+        if ($request->hasFile('photo')) {
+            if ($user->profile_photo_path) {
+                Storage::disk('s3')->delete($user->profile_photo_path);
+            }
+            $path = $request->file('photo')->storePublicly('accounting-profile-photos', 's3');          
             $user->profile_photo_path = $path;
         }
 

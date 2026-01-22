@@ -228,10 +228,10 @@
                                 <label for="inviteRole" class="form-label">Role <span class="text-danger">*</span></label>
                                 <select name="role" id="inviteRole" class="form-select" required>
                                     <option value="" disabled selected>Select Role...</option>
-                                    <option value="Bookkeeper">Bookkeeper (Maker)</option>
-                                    <option value="Reviewer">Reviewer (Checker)</option>
-                                    <option value="Approver">Approver (Signatory)</option>
-                                    <option value="SuperAdministrator">SuperAdministrator</option>
+                                    <option value="Bookkeeper">Bookkeeper</option>
+                                    <option value="Reviewer">Reviewer</option>
+                                    <option value="Approver">Approver</option>
+                                    <option value="SuperAdministrator">Company Administrator</option>
                                 </select>
                             </div>
                         </div>

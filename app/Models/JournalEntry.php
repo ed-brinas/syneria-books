@@ -16,16 +16,21 @@ class JournalEntry extends Model
 
     protected $fillable = [
         'date',
+        'auto_reverse_date',
+        'tax_type',        
         'reference',
         'description',
         'status',
         'locked',
+        'is_reversed',
         'created_by'
     ];
 
     protected $casts = [
         'date' => 'date',
+        'auto_reverse_date' => 'date',
         'locked' => 'boolean',
+        'is_reversed' => 'boolean',
     ];
 
     /**

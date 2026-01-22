@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
 
 class User extends Authenticatable
 {
@@ -88,8 +89,11 @@ class User extends Authenticatable
     // Helper to get photo URL or default placeholder
     public function getProfilePhotoUrlAttribute()
     {
-        return $this->profile_photo_path
-            ? asset('storage/' . $this->profile_photo_path)
-            : 'https://ui-avatars.com/api/?name='.urlencode($this->first_name . ' ' . $this->last_name).'&color=7F9CF5&background=EBF4FF';
+        if ($this->profile_photo_path) {
+            // Generates the full S3 URL (e.g., https://bucket.s3.region.amazonaws.com/path)
+            return Storage::disk('s3')->url($this->profile_photo_path);
+        }
+
+        return 'https://ui-avatars.com/api/?name='.urlencode($this->first_name . ' ' . $this->last_name).'&color=7F9CF5&background=EBF4FF';
     }
 }

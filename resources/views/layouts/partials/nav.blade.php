@@ -21,24 +21,24 @@
                      </ul>
                  </li>
                 
-                 {{-- Phase 3: Sales (AR) --}}
+                 {{-- Sales (AR) --}}
                  <li class="nav-item">
                      <a class="nav-link {{ request('type') == 'invoice' ? 'active' : '' }}" 
                         href="{{ route('invoices.index', ['type' => 'invoice']) }}">Sales</a>
                  </li>
 
-                 {{-- Phase 3: Purchases (AP) --}}
+                 {{-- Purchases (AP) --}}
                  <li class="nav-item">
                      <a class="nav-link {{ request('type') == 'bill' ? 'active' : '' }}" 
                         href="{{ route('invoices.index', ['type' => 'bill']) }}">Purchases</a>
                  </li>
 
-                 {{-- Phase 4: Banking (Placeholder) --}}
+                 {{-- Banking (Placeholder) --}}
                  <li class="nav-item">
                      <a class="nav-link" href="#">Banking</a>
                  </li>
                                   
-                 {{-- Phase 6: Reports (Placeholder) --}}
+                 {{-- Reports (Placeholder) --}}
                  <li class="nav-item">
                      <a class="nav-link" href="#">Reports</a>
                  </li>
@@ -52,22 +52,24 @@
 
             <div class="d-flex align-items-center">
                 <div class="dropdown text-end">
-                    <a href="#" class="d-block link-light text-decoration-none dropdown-toggle" id="userDropdown" data-bs-toggle="dropdown">
-                        <i class="bi bi-person-circle fs-5 me-1"></i>
+                    {{-- Avatar Section --}}
+                    <a href="#" class="d-flex align-items-center link-light text-decoration-none dropdown-toggle" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        <img src="{{ Auth::user()->profile_photo_url }}" alt="{{ Auth::user()->first_name }}" width="32" height="32" class="rounded-circle me-2" style="object-fit: cover;">
                         {{ Auth::user()->first_name ?? 'User' }}
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end text-small">
                         <li><h6 class="dropdown-header">{{ Auth::user()->tenant->company_name ?? 'My Organization' }}</h6></li>
                         <li><hr class="dropdown-divider"></li>
                         
-                        {{-- UPDATED PROFILE LINK --}}
+                        {{-- Profile & Security Section --}}
                         <li><a class="dropdown-item" href="{{ route('settings.profile.edit') }}">Profile & Security</a></li>
                         
-                        {{-- ADMIN ONLY LINKS --}}
+                        {{-- Administrator Links --}}
                         @if(Auth::user()->role === 'SuperAdministrator')
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="#">Billing</a></li>
                             <li><a class="dropdown-item" href="#">Company Profile</a></li>
+                            <li><a class="dropdown-item" href="{{ route('settings.tax_rates.index') }}">Tax Rates</a></li>
                             <li><a class="dropdown-item" href="{{ route('settings.users.index') }}">Users & Access Profile</a></li>
                             <li><a class="dropdown-item" href="{{ route('settings.users.index') }}">Audit Trail</a></li>
                         @endif
