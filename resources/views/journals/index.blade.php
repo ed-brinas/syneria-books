@@ -158,7 +158,7 @@
                                                     </button>
                                                 </li>
                                             @else
-                                                <li><span class="dropdown-item-text text-muted small">Draft (Bookkeeper Only)</span></li>
+                                                <li><span class="dropdown-item-text text-muted small">Draft</span></li>
                                             @endif
 
                                         {{-- 2. Review Actions (Reviewer) --}}
