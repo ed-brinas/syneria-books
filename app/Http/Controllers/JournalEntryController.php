@@ -156,7 +156,6 @@ class JournalEntryController extends Controller
              return $this->redirectUnauthorized('Only Bookkeepers can edit entries in Review.');
         }
         
-        // Modified: Check for 'reviewed' instead of 'approved'
         if (in_array($journal->status, ['reviewed', 'posted', 'voided'])) {
             return redirect()->route('journals.index')->with('error_modal', 'Cannot edit a Reviewed or Posted entry.');
         }
