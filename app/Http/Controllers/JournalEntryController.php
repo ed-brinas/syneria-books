@@ -153,7 +153,7 @@ class JournalEntryController extends Controller
              return $this->redirectUnauthorized('Only Bookkeepers can edit Drafts.');
         }
         if ($journal->status === 'review' && !$this->userHasRole(['bookkeeper', 'reviewer'])) {
-             return $this->redirectUnauthorized('Only Bookkeepers or Reviewers can edit entries in Review.');
+             return $this->redirectUnauthorized('Only Bookkeepers can edit entries in Review.');
         }
         
         // Modified: Check for 'reviewed' instead of 'approved'
@@ -228,7 +228,7 @@ class JournalEntryController extends Controller
     public function approve(JournalEntry $journal)
     {
         if (!$this->userHasRole(['reviewer', 'approver'])) {
-            return $this->redirectUnauthorized('Only Reviewers or Approvers can approve entries.');
+            return $this->redirectUnauthorized('Only Approvers can approve entries.');
         }
 
         if ($journal->status !== 'review') {
@@ -245,14 +245,12 @@ class JournalEntryController extends Controller
         return back()->with('success', "Journal marked as Reviewed. Waiting for Posting.");
     }
 
-    // --- Workflow: Rejection (Send back to Draft) ---
     public function reject(JournalEntry $journal)
     {
         if (!$this->userHasRole(['reviewer', 'approver'])) {
             return $this->redirectUnauthorized('Only Reviewers or Approvers can reject entries.');
         }
 
-        // Modified: Can reject from 'review' OR 'reviewed'
         if (!in_array($journal->status, ['review', 'reviewed'])) {
             return redirect()->route('journals.index')->with('error_modal', 'Only entries in Review or Reviewed status can be rejected.');
         }
@@ -269,14 +267,12 @@ class JournalEntryController extends Controller
         return back()->with('success', "Journal rejected and returned to Draft for corrections.");
     }
 
-    // --- Workflow: Step 3 (Approver Posts -> Posted) ---
     public function post(JournalEntry $journal)
     {
         if (!$this->userHasRole(['approver'])) {
             return $this->redirectUnauthorized('Only Approvers can post entries.');
         }
 
-        // Modified: Entry must be 'reviewed' to post
         if ($journal->status !== 'reviewed') {
             return redirect()->route('journals.index')->with('error_modal', 'Entry must be Reviewed before Posting.');
         }

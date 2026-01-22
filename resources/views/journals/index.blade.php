@@ -308,7 +308,7 @@
         <div class="modal-content">
             <div class="modal-header border-bottom-0">
                 <h5 class="modal-title text-danger">
-                    <i class="bi bi-exclamation-octagon-fill me-2"></i>Access Denied
+                    <i class="bi bi-exclamation-octagon-fill me-2"></i>403 - Forbidden
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
