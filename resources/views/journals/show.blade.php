@@ -52,7 +52,7 @@
                 </form>
             @elseif($journal->status === 'approved')
                 <form action="{{ route('journals.post', $journal->id) }}" method="POST" class="d-inline">
-                    @csrf <button class="btn btn-success btn-sm">Post to GL</button>
+                    @csrf <button class="btn btn-success btn-sm">Approve & Post</button>
                 </form>
             @endif
             <button onclick="window.print()" class="btn btn-dark btn-sm ms-2"><i class="bi bi-printer"></i> Print</button>
