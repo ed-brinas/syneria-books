@@ -11,6 +11,7 @@ use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TaxRateController;
+use App\Http\Controllers\OrganizationController;
 
 // Public Route (Entry Point)
 Route::get('/', Login::class)->name('login')->middleware('guest');
@@ -28,6 +29,15 @@ Route::middleware(['auth'])->group(function () {
 
     // --- Settings & Administration ---
     Route::prefix('settings')->name('settings.')->group(function() {
+
+        // Organization Settings
+        Route::controller(OrganizationController::class)->prefix('organization')->name('organization.')->group(function() {
+            Route::get('/', 'index')->name('index');
+            Route::put('/', 'update')->name('update');
+            Route::post('/logo', 'uploadLogo')->name('logo');
+            Route::post('/bank', 'storeBank')->name('bank.store');
+            Route::delete('/bank/{bankAccount}', 'destroyBank')->name('bank.destroy');
+        });
 
         Route::controller(TaxRateController::class)->prefix('tax-rates')->name('tax_rates.')->group(function() {
             Route::get('/', 'index')->name('index');
@@ -73,10 +83,17 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/reverse', [JournalEntryController::class, 'reverse'])->name('reverse');
     });
     
-    // Sales & Purchases
+    // Invoice (Standard Resource)
     Route::resource('invoices', InvoiceController::class);
-    Route::post('/invoices/{invoice}/void', [InvoiceController::class, 'void'])->name('invoices.void');
-    Route::get('/invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
+    
+    // Invoice (Lifecycle Actions)
+    Route::prefix('invoices/{invoice}')->name('invoices.')->group(function() {
+        Route::post('/submit', [InvoiceController::class, 'submit'])->name('submit');
+        Route::post('/approve', [InvoiceController::class, 'approve'])->name('approve');
+        Route::post('/reject', [InvoiceController::class, 'reject'])->name('reject');
+        Route::post('/send', [InvoiceController::class, 'send'])->name('send');
+        Route::post('/void', [InvoiceController::class, 'void'])->name('void');
+    });
 
     // Contacts
     Route::resource('contacts', ContactController::class);

@@ -67,8 +67,15 @@
                         {{-- Administrator Links --}}
                         @if(Auth::user()->role === 'SuperAdministrator')
                             <li><hr class="dropdown-divider"></li>
+                            <li><h6 class="dropdown-header text-uppercase small text-muted my-1">Administration</h6></li>                           
+                            <li>
+                                <a class="dropdown-item {{ request()->routeIs('settings.organization.*') ? 'active' : '' }}" 
+                                   href="{{ route('settings.organization.index') }}">
+                                   Organization Settings
+                                </a>
+                            </li>
+                            
                             <li><a class="dropdown-item" href="#">Billing</a></li>
-                            <li><a class="dropdown-item" href="#">Company Profile</a></li>
                             <li><a class="dropdown-item" href="{{ route('settings.tax_rates.index') }}">Tax Rates</a></li>
                             <li><a class="dropdown-item" href="{{ route('settings.users.index') }}">Users & Access Profile</a></li>
                             <li><a class="dropdown-item" href="{{ route('settings.users.index') }}">Audit Trail</a></li>

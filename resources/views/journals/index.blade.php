@@ -5,7 +5,10 @@
 @section('content')
 <div class="container-fluid py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="h4 text-dark fw-bold">Journal Entries</h2>
+        <div>
+            <h2 class="h4 text-dark fw-bold">Journal Entries</h2>
+            <p class="text-muted small mb-0">Manage your journal entries and workflow.</p>
+        </div>
         
         <div class="d-flex gap-2">
             {{-- Combined Filter & Search Form --}}
@@ -13,7 +16,7 @@
                 
                 {{-- Status Filter Dropdown --}}
                 <select name="status" class="form-select form-select-sm" onchange="this.form.submit()" style="min-width: 140px; border-color: #ced4da;">
-                    <option value="all" {{ request('status') == 'all' ? 'selected' : '' }}>All</option>
+                    <option value="all" {{ request('status') == 'all' ? 'selected' : '' }}>All Statuses</option>
                     <option value="draft" {{ request('status') == 'draft' ? 'selected' : '' }}>Draft</option>
                     <option value="review" {{ request('status') == 'review' ? 'selected' : '' }}>For Review</option>
                     <option value="reviewed" {{ request('status') == 'reviewed' ? 'selected' : '' }}>Reviewed</option>
@@ -22,7 +25,7 @@
                 </select>
 
                 <div class="input-group input-group-sm">
-                    <input type="text" name="search" class="form-control" placeholder="Search entries..." value="{{ request('search') }}">
+                    <input type="text" name="search" class="form-control" placeholder="Search Number, Ref, Desc..." value="{{ request('search') }}">
                     <button class="btn btn-outline-secondary" type="submit">
                         <i class="bi bi-search"></i>
                     </button>
@@ -41,6 +44,7 @@
         </div>
     </div>
 
+    {{-- Success Alert --}}
     @if(session('success'))
         <div class="alert alert-success alert-dismissible fade show" role="alert">
             {{ session('success') }}
@@ -48,13 +52,9 @@
         </div>
     @endif
     
-    @if($errors->any())
+    @if(session('error'))
         <div class="alert alert-danger alert-dismissible fade show" role="alert">
-            <ul class="mb-0">
-                @foreach($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
+            {{ session('error') }}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     @endif
@@ -76,14 +76,14 @@
                     <tbody>
                         @forelse($entries as $entry)
                         @php
-                            // Determine User Role for this specific loop iteration
+                            // Determine User Role for this specific loop iteration to drive dropdown logic
                             $userRole = strtolower(auth()->user()->role ?? '');
                         @endphp
                         <tr>
                             <td class="ps-4">{{ $entry->date->format('Y-m-d') }}</td>
                             <td>
                                 @if($entry->reference)
-                                    <span class="font-monospace fw-bold">{{ $entry->reference }}</span>
+                                    <span class="font-monospace fw-bold text-primary">{{ $entry->reference }}</span>
                                 @else
                                     <span class="text-muted small">--</span>
                                 @endif
@@ -125,7 +125,6 @@
                                         
                                         {{-- 1. Draft Actions (Bookkeeper) --}}
                                         @if($entry->status === 'draft')
-                                            {{-- Only Bookkeepers should see draft edit options --}}
                                             @if($userRole === 'bookkeeper')
                                                 <li><h6 class="dropdown-header">Draft Actions</h6></li>
                                                 <li>
@@ -158,7 +157,7 @@
                                                     </button>
                                                 </li>
                                             @else
-                                                <li><span class="dropdown-item-text text-muted small">Draft</span></li>
+                                                <li><span class="dropdown-item-text text-muted small">Draft (Bookkeeper Only)</span></li>
                                             @endif
 
                                         {{-- 2. Review Actions (Reviewer) --}}
@@ -300,35 +299,6 @@
         </div>
     </div>
 </div>
-
-{{-- Error/Unauthorized Modal (New) --}}
-@if(session('error_modal'))
-<div class="modal fade" id="errorModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header border-bottom-0">
-                <h5 class="modal-title text-danger">
-                    <i class="bi bi-exclamation-octagon-fill me-2"></i>403 - Forbidden
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body py-4 text-center">
-                <p class="mb-0 fs-5 text-secondary">{{ session('error_modal') }}</p>
-            </div>
-            <div class="modal-footer border-top-0 justify-content-center">
-                <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Close</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    var errorModal = new bootstrap.Modal(document.getElementById('errorModal'));
-    errorModal.show();
-});
-</script>
-@endif
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {

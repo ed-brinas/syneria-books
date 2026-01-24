@@ -31,7 +31,7 @@
                 
                 @if(!isset($journal) || $journal->status === 'draft')
                 <button type="submit" name="action" value="submit" class="btn btn-primary btn-sm">
-                    <i class="bi bi-send"></i> Submit for Review
+                    <i class="bi bi-arrow-right-circle"></i> Submit for Review
                 </button>
                 @endif
             </div>
@@ -130,11 +130,11 @@
 
                     <div class="col-md-2">
                         <select name="lines[{{ $index }}][tax_code_id]" class="form-select form-select-sm tax-select" data-rate="0">
-                            <option value="" data-rate="0">No Tax (0%)</option>
+                            <option value="" data-rate="0">None (0%)</option>
                             @foreach($taxRates as $rate)
                                 <option value="{{ $rate->id }}" data-rate="{{ $rate->rate }}" 
                                     {{ ($line['tax_code_id'] ?? '') == $rate->id ? 'selected' : '' }}>
-                                    {{ $rate->name }} ({{ $rate->display_rate }})
+                                    {{ $rate->name }}
                                 </option>
                             @endforeach
                         </select>

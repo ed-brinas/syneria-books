@@ -8,22 +8,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // 1. Contacts (Customers, Suppliers, Employees)
-        Schema::create('contacts', function (Blueprint $table) {
-            $table->uuid('id')->primary();
-            $table->foreignUuid('tenant_id')->constrained()->onDelete('cascade');
-            $table->enum('type', ['customer', 'supplier', 'employee']);
-            $table->text('name'); 
-            $table->text('company_name')->nullable();
-            $table->text('email')->nullable();
-            $table->text('tax_number')->nullable();
-            
-            $table->text('address')->nullable();
-            $table->timestamps();
-            $table->softDeletes();
-        });
-
-        // 2. Invoices (Used for both AR Invoices and AP Bills)
+        // 1. Invoices
         Schema::create('invoices', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('tenant_id')->constrained()->onDelete('cascade');
@@ -34,27 +19,53 @@ return new class extends Migration
             $table->string('number')->nullable();
             $table->string('reference')->nullable(); 
             $table->string('payment_terms')->nullable();           
+            $table->string('currency_code', 3)->default('PHP'); 
             $table->date('date');
             $table->date('due_date');
-            $table->enum('status', ['draft', 'posted', 'paid', 'voided'])->default('draft');
+            $table->boolean('is_recurring')->default(false);
+            $table->integer('recurrence_interval')->nullable();
+            $table->enum('recurrence_type', ['weeks', 'months'])->nullable();
+            $table->date('recurrence_end_date')->nullable();
+            $table->date('last_recurrence_date')->nullable();
+            $table->date('next_recurrence_date')->nullable();
+            $table->enum('status', ['draft', 'review', 'reviewed', 'posted', 'paid', 'voided'])->default('draft');
             $table->decimal('subtotal', 15, 2)->default(0);
             $table->decimal('tax_total', 15, 2)->default(0);
-            $table->decimal('grand_total', 15, 2)->default(0);
+            $table->decimal('withholding_tax_rate', 5, 2)->default(0);
+            $table->decimal('withholding_tax_amount', 15, 2)->default(0);
+            $table->decimal('grand_total', 15, 2)->default(0);            
             $table->text('notes')->nullable();    
             $table->timestamps();
             $table->softDeletes();
             $table->unique(['tenant_id', 'type', 'number']); 
         });
 
-        // 3. Invoice Items (Lines)
+        // 2. Invoice Items
         Schema::create('invoice_items', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('invoice_id')->constrained()->onDelete('cascade');
             $table->foreignUuid('account_id')->constrained(); 
+            $table->foreignUuid('tax_rate_id')->nullable()->constrained('tax_rates')->nullOnDelete();
             $table->string('description');
             $table->decimal('quantity', 10, 2);
             $table->decimal('unit_price', 15, 2);
+            $table->decimal('discount_rate', 5, 2)->default(0); 
             $table->decimal('amount', 15, 2);
+            $table->decimal('tax_amount', 15, 2)->default(0);
+            
+            $table->timestamps();
+        });
+
+        // 3. Attachments
+        Schema::create('invoice_attachments', function (Blueprint $table) {
+            $table->uuid('id')->primary();
+            $table->foreignUuid('invoice_id')->constrained()->onDelete('cascade');
+            $table->foreignUuid('tenant_id')->constrained()->onDelete('cascade');
+            $table->string('file_name');
+            $table->string('file_path');
+            $table->string('file_type');
+            $table->unsignedBigInteger('file_size');
+            $table->foreignUuid('uploaded_by')->nullable()->constrained('users');
             $table->timestamps();
         });
     }
@@ -62,7 +73,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('invoice_items');
+        Schema::dropIfExists('invoice_attachments');
         Schema::dropIfExists('invoices');
-        Schema::dropIfExists('contacts');
     }
 };

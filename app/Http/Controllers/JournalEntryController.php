@@ -27,9 +27,9 @@ class JournalEntryController extends Controller
     /**
      * Helper: Redirect with Error Modal
      */
-    private function redirectUnauthorized($message = 'You are not authorized to perform this action.')
+    private function redirectUnauthorized($message = 'Unauthorized action.')
     {
-        return redirect()->route('journals.index')->with('error_modal', $message);
+        return back()->with('error', $message);
     }
 
     public function index(Request $request)
@@ -72,7 +72,7 @@ class JournalEntryController extends Controller
     public function create()
     {
         if (!$this->userHasRole(['bookkeeper'])) {
-            return $this->redirectUnauthorized('Role must be Bookkeeper to create entries.');
+            return $this->redirectUnauthorized('Only users with the Bookkeeper role can create entries. To manage team permissions, go to User Profile > Users & Access Profile in the navigation bar to invite bookkeepers, reviewers, or approvers.');
         }
 
         $accounts = Account::active()->orderBy('code')->get();
@@ -88,7 +88,7 @@ class JournalEntryController extends Controller
     public function store(Request $request)
     {
         if (!$this->userHasRole(['bookkeeper'])) {
-            return $this->redirectUnauthorized('Only Bookkeepers can create Journal Entries.');
+            return $this->redirectUnauthorized('Only users with the Bookkeeper role can create entries. To manage team permissions, go to User Profile > Users & Access Profile in the navigation bar to invite bookkeepers, reviewers, or approvers.');
         }
 
         $tenantId = auth()->user()->tenant_id;
@@ -312,8 +312,12 @@ class JournalEntryController extends Controller
             ->get();
             
         $journal->setRelation('activities', $activities);
+
+        $isBookkeeper = $this->userHasRole(['bookkeeper', 'admin']);
+        $isReviewer = $this->userHasRole(['reviewer', 'approver', 'admin']);
+        $isApprover = $this->userHasRole(['approver', 'admin']);
         
-        return view('journals.show', compact('journal'));
+        return view('journals.show', compact('journal','isBookkeeper', 'isReviewer', 'isApprover'));
     }
 
     public function edit(JournalEntry $journal)

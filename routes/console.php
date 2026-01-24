@@ -12,3 +12,8 @@ Schedule::command('accounting:auto-reverse')
     ->dailyAt('01:00')       // Run at 1 AM
     ->withoutOverlapping()   // Prevent multiple instances running at once
     ->onOneServer();         // If you have multiple servers, run on only one
+
+Schedule::command('invoices:process-recurring')
+    ->dailyAt('01:00')
+    ->withoutOverlapping()   // Prevent multiple instances running at once
+    ->onOneServer();         // If you have multiple servers, run on only one

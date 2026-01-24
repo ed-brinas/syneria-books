@@ -23,6 +23,7 @@ return new class extends Migration
             $table->string('business_type')->nullable();
             $table->string('country')->default('PH');
             $table->string('domain')->nullable()->unique();
+            $table->string('logo_path')->nullable();
             $table->string('subscription_plan')->default('free');
             $table->date('subscription_expires_at')->nullable();
             $table->timestamps();

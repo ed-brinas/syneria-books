@@ -16,16 +16,21 @@ class InvoiceItem extends Model
     protected $fillable = [
         'invoice_id', 
         'account_id', 
+        'tax_rate_id', 
         'description', 
         'quantity', 
         'unit_price', 
-        'amount'
+        'discount_rate',
+        'amount',
+        'tax_amount'
     ];
 
     protected $casts = [
         'quantity' => 'decimal:2',
         'unit_price' => 'decimal:2',
+        'discount_rate' => 'decimal:2',
         'amount' => 'decimal:2',
+        'tax_amount' => 'decimal:2',
     ];
 
     protected static function boot()
@@ -44,5 +49,10 @@ class InvoiceItem extends Model
     public function account()
     {
         return $this->belongsTo(Account::class);
+    }
+
+    public function taxRate()
+    {
+        return $this->belongsTo(TaxRate::class);
     }
 }

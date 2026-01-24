@@ -7,6 +7,7 @@
     
     <!-- Using Bootstrap CSS for layout consistency in View mode -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <style>
         body { background-color: #f8f9fa; padding: 20px; }
         .paper {
@@ -39,23 +40,30 @@
 <body>
 
     <!-- Toolbar -->
-    <div class="container mb-4 no-print d-flex justify-content-between align-items-center">
-        <a href="{{ route('journals.index') }}" class="btn btn-outline-secondary btn-sm">&larr; Back to List</a>
-        <div>
-            @if($journal->status === 'draft')
-                <form action="{{ route('journals.submit', $journal->id) }}" method="POST" class="d-inline">
-                    @csrf <button class="btn btn-primary btn-sm">Submit for Review</button>
-                </form>
-            @elseif($journal->status === 'review')
-                <form action="{{ route('journals.approve', $journal->id) }}" method="POST" class="d-inline">
-                    @csrf <button class="btn btn-success btn-sm">Approve</button>
-                </form>
-            @elseif($journal->status === 'approved')
-                <form action="{{ route('journals.post', $journal->id) }}" method="POST" class="d-inline">
-                    @csrf <button class="btn btn-success btn-sm">Approve & Post</button>
-                </form>
-            @endif
-            <button onclick="window.print()" class="btn btn-dark btn-sm ms-2"><i class="bi bi-printer"></i> Print</button>
+     <div class="container mb-4 no-print">
+        <div class="d-flex justify-content-between align-items-center bg-white p-3 rounded shadow-sm border">
+            <a href="{{ route('journals.index') }}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-arrow-left"></i> Back to List</a>
+            <div>
+                @if($journal->status === 'draft' && $isBookkeeper)
+                    <form action="{{ route('journals.submit', $journal->id) }}" method="POST" class="d-inline">
+                        @csrf <button class="btn btn-primary btn-sm">Submit for Review</button>
+                    </form>
+                @endif
+
+                @if($journal->status === 'review' && $isReviewer)
+                    <form action="{{ route('journals.approve', $journal->id) }}" method="POST" class="d-inline">
+                        @csrf <button class="btn btn-success btn-sm">Approve</button>
+                    </form>
+                @endif
+
+                @if($journal->status === 'reviewed' && $isApprover)
+                    <form action="{{ route('journals.post', $journal->id) }}" method="POST" class="d-inline">
+                        @csrf <button class="btn btn-success btn-sm">Approve & Post</button>
+                    </form>
+                @endif
+                <button onclick="window.print()" class="btn btn-dark btn-sm"><i class="bi bi-printer"></i> Print / PDF</button>
+            </div>
         </div>
     </div>
 
@@ -75,11 +83,19 @@
             <div class="col-6 text-end">
                 <h3 class="fw-bold mb-3">JOURNAL #{{ $journal->reference ?? 'DRAFT' }}</h3>
                 <table class="table table-borderless table-sm w-auto ms-auto text-end">
-                    <tr><td class="text-muted">Date:</td><td class="fw-bold">{{ $journal->date->format('d M Y') }}</td></tr>
-                    @if($journal->auto_reverse_date)
-                        <tr><td class="text-muted">Reverses On:</td><td class="fw-bold">{{ $journal->auto_reverse_date->format('d M Y') }}</td></tr>
-                    @endif
-                    <tr><td class="text-muted">Amounts:</td><td>{{ ucfirst(str_replace('_', ' ', $journal->tax_type)) }}</td></tr>
+                    <tr>
+                        <td class="text-muted">Date:</td>
+                        <td class="fw-bold">{{ $journal->date->format('d M Y') }}</td></tr>
+                        @if($journal->auto_reverse_date)
+                        <tr>
+                            <td class="text-muted">Reverses On:</td>
+                            <td class="fw-bold">{{ $journal->auto_reverse_date->format('d M Y') }}</td>
+                        </tr>
+                        @endif
+                    <tr>
+                        <td class="text-muted">Tax Type:</td>
+                        <td>{{ ucfirst(str_replace('_', ' ', $journal->tax_type)) }}</td>
+                    </tr>
                 </table>
             </div>
         </div>
@@ -151,18 +167,16 @@
             </tfoot>
         </table>
 
-        <hr class="my-5">
-
         <!-- History & Audit Trail (The Requested History Section) -->
         <div class="mt-5 no-print">
-            <h5 class="fw-bold border-bottom pb-2">History & Activity Log</h5>
+            <h6 class="fw-bold border-bottom pb-2">History & Activity Log</h6>
             <div class="list-group list-group-flush">
                 @forelse($journal->activities as $activity)
                     <div class="list-group-item d-flex justify-content-between align-items-center px-0">
                         <div>
                             <span class="badge bg-secondary me-2">{{ strtoupper($activity->action) }}</span>
                             <span class="fw-bold">{{ $activity->user->name ?? 'System' }}</span>
-                            <span class="text-muted ms-1">{{ $activity->description }}</span>
+                            <span class="text-muted ms-1"><small>{{ $activity->description }}</small></span>
                         </div>
                         <small class="text-muted">{{ $activity->created_at->format('M d, Y h:i A') }}</small>
                     </div>
@@ -170,8 +184,12 @@
                     <div class="text-muted fst-italic py-2">No activity recorded.</div>
                 @endforelse
             </div>
-        </div>
 
+            <!-- Footer / Generation Time -->
+            <div class="mt-5 pt-2 border-top text-center text-muted small text-uppercase">
+                Generated on: {{ now()->format('M d, Y h:i A') }}
+            </div>             
+        </div>       
     </div>
 </body>
 </html>
