@@ -18,7 +18,9 @@ class BankAccount extends Model
         'branch_code',
         'swift_code',
         'tenant_id',
-        'address'
+        'address',
+        'account_id',
+        'is_active'
     ];
 
     /**
@@ -29,10 +31,27 @@ class BankAccount extends Model
         'account_number' => 'encrypted',
         'branch_code' => 'encrypted',
         'swift_code' => 'encrypted',
+        'is_active' => 'boolean',
     ];
 
     public function tenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class);
+    }
+
+    /**
+     * Get the linked Chart of Accounts entry.
+     */
+    public function account(): BelongsTo
+    {
+        return $this->belongsTo(Account::class);
+    }
+
+    /**
+     * Scope a query to only include active bank accounts.
+     */
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
     }
 }

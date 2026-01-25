@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('bank_accounts', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('tenant_id')->constrained()->cascadeOnDelete();
+            $table->foreignUuid('account_id')->constrained('accounts')->onDelete('restrict');
             $table->string('bank_name');
             $table->string('currency')->default('PHP');
             $table->text('account_name');
@@ -21,7 +22,7 @@ return new class extends Migration
             $table->text('branch_code')->nullable();
             $table->text('swift_code')->nullable();
             $table->text('address')->nullable();
-            
+            $table->boolean('is_active')->default(true);
             $table->timestamps();
         });
     }

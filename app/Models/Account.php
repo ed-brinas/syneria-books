@@ -3,12 +3,14 @@
 namespace App\Models;
 
 use App\Models\Traits\BelongsToTenant;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Account extends Model
 {
-    use BelongsToTenant;
+    use BelongsToTenant, HasUuids;
 
     public $incrementing = false;
     protected $keyType = 'string';
@@ -36,6 +38,14 @@ class Account extends Model
         return $this->hasMany(JournalEntryLine::class);
     }
     
+    /**
+     * Get the bank account associated with this account (if any).
+     */
+    public function bankAccount(): HasOne
+    {
+        return $this->hasOne(BankAccount::class);
+    }
+
     /**
      * Scope to get only active accounts.
      */
