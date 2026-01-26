@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\BankAccount;
 use App\Models\Account;
+use App\Models\Branch; // Added
+use App\Models\Tenant; // Added
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -24,10 +26,13 @@ class OrganizationController extends Controller
         $currencies = Currencies::getNames();
         $tenant = auth()->user()->tenant; 
         
-        // Load ONLY active bank accounts
+        // Load active bank accounts
         $tenant->load(['bankAccounts' => function($query) {
             $query->where('is_active', true);
         }]);
+
+        // Load Branches (New)
+        $branches = $tenant->branches()->orderBy('is_default', 'desc')->get();
 
         // Define Business Types Logic
         $businessTypesPH = [
@@ -43,239 +48,218 @@ class OrganizationController extends Controller
             'Sole Proprietorship' => 'Sole Proprietorship / Sole Trader',
             'Partnership' => 'Partnership / LLP',
             'LLC' => 'LLC / Ltd',
-            'Corporation' => 'Corporation / Pty Ltd',
-            'Non-Profit' => 'Non-Profit / Charity',
+            'Corporation' => 'Corporation / Inc / PLC',
+            'NonProfit' => 'Non-Profit Organization',
         ];
 
-        return view('settings.organization.index', compact('tenant','countries','currencies', 'businessTypesPH', 'businessTypesIntl'));
-    }
+        $businessTypes = ($tenant->country === 'PH') ? $businessTypesPH : $businessTypesIntl;
 
-    public function update(Request $request)
-    {
-        $tenant = auth()->user()->tenant;
-        $originalData = $tenant->toArray();
-
-        $validated = $request->validate([
-            'company_name' => ['required', 'string', 'max:255'],
-            'trade_name' => ['nullable', 'string', 'max:255'],
-            'business_type' => ['nullable', 'string', 'max:50'],
-            'company_reg_number' => ['nullable', 'string', 'max:255'],
-            'tax_identification_number' => ['nullable', 'string', 'max:255'],
-            'business_address' => ['nullable', 'string', 'max:500'],
-            'city' => ['nullable', 'string', 'max:100'],
-            'postal_code' => ['nullable', 'string', 'max:20'],
-            'country' => ['required', 'string', 'size:2'],
-        ]);
-
-        $tenant->update($validated);
-
-        ActivityLog::create([
-            'tenant_id' => Auth::user()->tenant_id,
-            'user_id' => Auth::id(),
-            'action' => 'updated',
-            'description' => "Updated Organization Profile for {$tenant->company_name}",
-            'subject_type' => get_class($tenant),
-            'subject_id' => $tenant->id,
-            'ip_address' => $request->ip(),
-            'properties' => [
-                'old' => array_intersect_key($originalData, $validated),
-                'new' => $tenant->only(array_keys($validated)),
-            ],
-        ]);
-
-        return back()->with('success', 'Organization details updated successfully.');
-    }
-
-    public function uploadLogo(Request $request)
-    {
-        $request->validate([
-            'photo' => ['required', 'image', 'mimes:jpg,jpeg,png', 'max:2048', 'dimensions:max_width=1000,max_height=1000'],
-        ]);
-
-        $tenant = auth()->user()->tenant;
-        $oldLogo = $tenant->logo_path;
-
-        if ($request->hasFile('photo')) {
-            if ($tenant->logo_path) {
-                Storage::disk('s3')->delete($tenant->logo_path);
-            }
-            $path = $request->file('photo')->storePublicly('accounting-organization-photos', 's3');          
-            $tenant->logo_path = $path;
-            $tenant->update(['logo_path' => $path]);
-
-            ActivityLog::create([
-                'tenant_id' => Auth::user()->tenant_id,
-                'user_id' => Auth::id(),
-                'action' => 'uploaded_logo',
-                'description' => "Uploaded new organization logo",
-                'subject_type' => get_class($tenant),
-                'subject_id' => $tenant->id,
-                'ip_address' => $request->ip(),
-                'properties' => ['old_logo_path' => $oldLogo, 'new_logo_path' => $path],
-            ]);
-        }
-
-        return back()->with('success', 'Logo uploaded successfully.');
+        return view('settings.organization.index', compact(
+            'tenant', 
+            'countries', 
+            'currencies', 
+            'businessTypes',
+            'branches' // Passed to view
+        ));
     }
 
     /**
-     * Store a new bank account with Named Error Bag ('addBank').
+     * Update Organization Details (Logo, Address, etc.)
      */
-    public function storeBank(Request $request)
+    public function update(Request $request)
     {
-        // Use Validator::make to specify a named error bag "addBank"
+        $tenant = auth()->user()->tenant;
+        
+        // 1. Validation
         $validator = Validator::make($request->all(), [
-            // Bank Account Details
-            'bank_name' => ['required', 'string', 'max:255'],
-            'account_name' => ['required', 'string', 'max:255'],
-            'account_number' => ['required', 'string', 'max:50'],
-            'currency' => ['required', 'string', 'size:3'],
-            'branch_code' => ['nullable', 'string', 'max:255'],
-            'swift_code' => ['nullable', 'string', 'max:255'],
-            'address' => ['nullable', 'string', 'max:500'],
-
-            // Chart of Accounts Details (Manual Input)
-            'coa_code' => [
-                'required', 
-                'string', 
-                'max:20',
-                Rule::unique('accounts', 'code')->where(function ($query) {
-                    return $query->where('tenant_id', auth()->user()->tenant_id);
-                })
-            ],
-            'coa_name' => ['required', 'string', 'max:255'],
-            'coa_type' => ['required', 'in:asset,liability,equity,revenue,expense'],
-            'coa_subtype' => ['nullable', 'string', 'max:255'],
+            'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048', // 2MB Max
+            'company_name' => 'required|string|max:255',
+            'trade_name' => 'nullable|string|max:255',
+            'company_reg_number' => 'nullable|string|max:50',
+            'tax_identification_number' => 'nullable|string|max:50',
+            'business_type' => 'nullable|string|max:100',
+            'business_address' => 'required|string|max:500',
+            'city' => 'required|string|max:100',
+            'postal_code' => 'required|string|max:20',
+            'country' => 'required|string|max:50',
+            'currency' => 'required|string|size:3',
         ]);
 
         if ($validator->fails()) {
-            return back()->withErrors($validator, 'addBank')->withInput();
+            return back()->withErrors($validator)->withInput()->with('error', 'Please check the form for errors.');
         }
 
-        $validated = $validator->validated();
-        $tenant = auth()->user()->tenant;
+        $oldData = $tenant->toArray();
 
-        DB::transaction(function () use ($validated, $tenant, $request) {
+        // 2. Handle Logo Upload
+        if ($request->hasFile('logo')) {
+            // Delete old logo if exists
+            if ($tenant->logo_path && Storage::disk('s3')->exists($tenant->logo_path)) {
+                Storage::disk('s3')->delete($tenant->logo_path);
+            }
+
+            // Upload new logo to S3
+            $path = $request->file('logo')->store('logos/' . $tenant->id, 's3');
+            $tenant->logo_path = $path;
+        }
+
+        // 3. Update Text Fields
+        $tenant->fill($request->except('logo'));
+        $tenant->save();
+
+        // 4. Activity Log
+        ActivityLog::create([
+            'tenant_id' => $tenant->id,
+            'user_id' => Auth::id(),
+            'action' => 'updated',
+            'description' => "Updated Organization Profile: {$tenant->company_name}",
+            'subject_type' => Tenant::class,
+            'subject_id' => $tenant->id,
+            'ip_address' => request()->ip(),
+            'properties' => ['old' => $oldData, 'new' => $tenant->fresh()->toArray()],
+        ]);
+
+        return back()->with('success', 'Organization profile updated successfully.');
+    }
+
+    // --- Branch Management (New) ---
+
+    public function storeBranch(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'code' => 'nullable|string|max:10',
+            'tin' => 'nullable|string|max:50',
+            'address' => 'nullable|string|max:500',
+        ]);
+
+        $tenant = Auth::user()->tenant;
+
+        $tenant->branches()->create([
+            'name' => $request->name,
+            'code' => $request->code,
+            'tin' => $request->tin,
+            'address' => $request->address,
+            'is_default' => false,
+        ]);
+
+        return redirect()->back()->with('success', 'Branch created successfully.');
+    }
+
+    public function updateBranch(Request $request, Branch $branch)
+    {
+        // Security check: ensure branch belongs to tenant
+        if($branch->tenant_id !== Auth::user()->tenant_id) {
+            abort(403);
+        }
+
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'code' => 'nullable|string|max:10',
+            'tin' => 'nullable|string|max:50',
+            'address' => 'nullable|string|max:500',
+        ]);
+
+        $branch->update($request->only(['name', 'code', 'tin', 'address']));
+
+        if ($request->has('set_default')) {
+            $branch->markAsDefault();
+        }
+
+        return redirect()->back()->with('success', 'Branch updated successfully.');
+    }
+
+    // --- Bank Account Management (Existing) ---
+
+    public function storeBank(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'bank_name' => 'required|string|max:100',
+            'account_name' => 'required|string|max:100',
+            'account_number' => 'required|string|max:50',
+            'currency' => 'required|string|size:3',
+            'swift_code' => 'nullable|string|max:20',
+            'opening_balance' => 'nullable|numeric|min:0',
+        ]);
+
+        if ($validator->fails()) {
+            return back()->withErrors($validator)->withInput()->with('error', 'Bank account validation failed.');
+        }
+
+        DB::transaction(function () use ($request) {
+            $tenantId = Auth::user()->tenant_id;
             
-            // 1. Create Linked COA
-            $account = Account::create([
-                'tenant_id' => $tenant->id,
-                'code' => $validated['coa_code'],
-                'name' => $validated['coa_name'],
-                'type' => $validated['coa_type'],
-                'subtype' => $validated['coa_subtype'],
-                'description' => 'Linked to Bank Account: ' . $validated['account_number'],
+            // 1. Create Chart of Accounts Entry (Asset)
+            $coa = Account::create([
+                'tenant_id' => $tenantId,
+                'code' => '1000-' . rand(100, 999), // Simple generator logic
+                'name' => $request->bank_name . ' - ' . $request->currency,
+                'type' => 'Asset',
+                'subtype' => 'Cash and Cash Equivalents',
+                'description' => 'Bank Account Linked: ' . $request->account_number,
                 'is_active' => true,
                 'is_system' => false,
             ]);
 
-            // Activity Log (COA)
-            ActivityLog::create([
-                'tenant_id' => Auth::user()->tenant_id,
-                'user_id' => Auth::id(),
-                'action' => 'created',
-                'description' => "Created Account (COA) for Bank: {$account->code} - {$account->name}",
-                'subject_type' => Account::class,
-                'subject_id' => $account->id,
-                'ip_address' => $request->ip(),
-                'properties' => $account->toArray(),
-            ]);
-
             // 2. Create Bank Account
-            $bankAccount = $tenant->bankAccounts()->create([
-                'bank_name' => $validated['bank_name'],
-                'account_name' => $validated['account_name'],
-                'account_number' => $validated['account_number'],
-                'currency' => $validated['currency'],
-                'branch_code' => $validated['branch_code'] ?? null,
-                'swift_code' => $validated['swift_code'] ?? null,
-                'address' => $validated['address'] ?? null,
-                'account_id' => $account->id,
+            $bank = BankAccount::create([
+                'tenant_id' => $tenantId,
+                'account_id' => $coa->id, // Link to COA
+                'bank_name' => $request->bank_name,
+                'account_name' => $request->account_name,
+                'account_number' => $request->account_number,
+                'currency' => $request->currency,
+                'swift_code' => $request->swift_code,
                 'is_active' => true,
             ]);
 
-            // Activity Log (Bank)
+            // 3. Log Activity
             ActivityLog::create([
-                'tenant_id' => Auth::user()->tenant_id,
+                'tenant_id' => $tenantId,
                 'user_id' => Auth::id(),
                 'action' => 'created',
-                'description' => "Added Bank Account: {$bankAccount->bank_name} - {$bankAccount->account_number}",
+                'description' => "Added Bank Account: {$bank->bank_name} ({$bank->currency})",
                 'subject_type' => BankAccount::class,
-                'subject_id' => $bankAccount->id,
-                'ip_address' => $request->ip(),
-                'properties' => $bankAccount->toArray(),
+                'subject_id' => $bank->id,
+                'ip_address' => request()->ip(),
             ]);
         });
 
-        return back()->with('success', 'Bank account and linked Ledger Account added successfully.');
+        return back()->with('success', 'Bank account added successfully.');
     }
 
-    /**
-     * Update a bank account with Named Error Bag ('updateBank').
-     */
     public function updateBank(Request $request, BankAccount $bankAccount)
     {
         $tenant = auth()->user()->tenant;
-
         if ($bankAccount->tenant_id !== $tenant->id) {
             abort(403);
         }
 
-        // Named Error Bag for Update Modal
         $validator = Validator::make($request->all(), [
-            'bank_name' => ['required', 'string', 'max:255'],
-            'account_name' => ['required', 'string', 'max:255'],
-            'account_number' => ['required', 'string', 'max:50'],
-            'currency' => ['required', 'string', 'size:3'],
-            'branch_code' => ['nullable', 'string', 'max:255'],
-            'swift_code' => ['nullable', 'string', 'max:255'],
-            'address' => ['nullable', 'string', 'max:500'],
+            'bank_name' => 'required|string|max:100',
+            'account_name' => 'required|string|max:100',
+            'account_number' => 'required|string|max:50',
+            'currency' => 'required|string|size:3',
+            'swift_code' => 'nullable|string|max:20',
         ]);
 
         if ($validator->fails()) {
-            return back()->withErrors($validator, 'updateBank')->withInput();
+            return back()->withErrors($validator)->withInput();
         }
 
-        $validated = $validator->validated();
-        $oldData = $bankAccount->toArray();
+        $bankAccount->update($request->all());
 
-        DB::transaction(function () use ($validated, $bankAccount, $request, $oldData) {
-            // 1. Update Bank Account
-            $bankAccount->update($validated);
-
-            // 2. Sync Linked Chart of Accounts Entry (Name & Description only)
-            if ($bankAccount->account_id) {
-                $linkedAccount = Account::find($bankAccount->account_id);
-                if ($linkedAccount) {
-                     $linkedAccount->update([
-                        'name' => $validated['bank_name'] . ' - ' . $validated['account_name'],
-                        'description' => 'Linked to Bank Account: ' . $validated['account_number'],
-                     ]);
-                }
+        // Update linked COA name if necessary
+        if ($bankAccount->account_id) {
+            $account = Account::find($bankAccount->account_id);
+            if ($account) {
+                $account->update(['name' => $request->bank_name . ' - ' . $request->currency]);
             }
-
-            // 3. Activity Log
-            ActivityLog::create([
-                'tenant_id' => Auth::user()->tenant_id,
-                'user_id' => Auth::id(),
-                'action' => 'updated',
-                'description' => "Updated Bank Account: {$bankAccount->bank_name} - {$bankAccount->account_number}",
-                'subject_type' => BankAccount::class,
-                'subject_id' => $bankAccount->id,
-                'ip_address' => $request->ip(),
-                'properties' => [
-                    'old' => $oldData,
-                    'new' => $bankAccount->fresh()->toArray()
-                ],
-            ]);
-        });
+        }
 
         return back()->with('success', 'Bank account updated successfully.');
     }
 
-    /**
-     * Remove (Deactivate) a bank account.
-     */
     public function destroyBank(BankAccount $bankAccount)
     {
         $tenant = auth()->user()->tenant;
@@ -286,10 +270,8 @@ class OrganizationController extends Controller
         $oldData = $bankAccount->toArray();
 
         DB::transaction(function () use ($bankAccount, $oldData) {
-            // 1. Deactivate Bank Account (Soft Delete equivalent)
             $bankAccount->update(['is_active' => false]);
 
-            // 2. Deactivate Linked Chart of Accounts Entry
             if ($bankAccount->account_id) {
                 $linkedAccount = Account::find($bankAccount->account_id);
                 if ($linkedAccount) {
@@ -297,12 +279,11 @@ class OrganizationController extends Controller
                 }
             }
 
-            // 3. Activity Log
             ActivityLog::create([
                 'tenant_id' => Auth::user()->tenant_id,
                 'user_id' => Auth::id(),
                 'action' => 'deactivated',
-                'description' => "Deactivated Bank Account and Linked COA: {$oldData['bank_name']} - {$oldData['account_number']}",
+                'description' => "Deactivated Bank Account: {$oldData['bank_name']}",
                 'subject_type' => BankAccount::class,
                 'subject_id' => $bankAccount->id,
                 'ip_address' => request()->ip(),

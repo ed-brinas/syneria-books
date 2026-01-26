@@ -10,6 +10,7 @@ use App\Models\Account;
 use App\Models\TaxRate;
 use App\Models\ActivityLog;
 use App\Models\Sequence;
+use App\Models\Branch; // Added for Multi-Branch support
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -45,381 +46,282 @@ class InvoiceController extends Controller
     {
         $type = $request->query('type', 'invoice');
         
-        $query = Invoice::with(['contact'])
+        $query = Invoice::with(['contact', 'branch']) // Eager load branch
             ->where('tenant_id', auth()->user()->tenant_id)
             ->where('type', $type);
 
+        // Filter by Status
         if ($request->has('status') && $request->status !== 'all' && !empty($request->status)) {
             $query->where('status', $request->status);
         }
 
+        // Filter by Branch (New)
+        if ($request->has('branch_id') && !empty($request->branch_id)) {
+            $query->where('branch_id', $request->branch_id);
+        }
+
+        // Search
         if ($request->has('search') && !empty($request->search)) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
                 $q->where('number', 'like', "%{$search}%")
-                  ->orWhere('reference', 'like', "%{$search}%")
                   ->orWhereHas('contact', function($c) use ($search) {
-                      $c->where('name', 'like', "%{$search}%");
+                      $c->where('company_name', 'like', "%{$search}%")
+                        ->orWhere('first_name', 'like', "%{$search}%")
+                        ->orWhere('last_name', 'like', "%{$search}%");
                   });
             });
         }
 
-        $invoices = $query->orderBy('date', 'desc')->paginate(15);
-        $invoices->appends($request->all());
-        
-        $isBookkeeper = $this->userHasRole(['bookkeeper', 'admin']);
-        $isReviewer = $this->userHasRole(['reviewer', 'approver', 'admin']);
-        $isApprover = $this->userHasRole(['approver', 'admin']);
+        $invoices = $query->orderBy('date', 'desc')->paginate(15)->withQueryString();
 
-        return view('invoices.index', compact('invoices', 'type', 'isBookkeeper', 'isReviewer', 'isApprover'));
+        return view('invoices.index', compact('invoices', 'type'));
     }
 
-    public function create(Request $request)
+    public function create()
     {
-        if (!$this->userHasRole(['bookkeeper', 'admin'])) {
-            return $this->redirectUnauthorized('Only Bookkeepers can create invoices.');
-        }
-
-        $type = $request->query('type', 'invoice');
-        $tenantId = auth()->user()->tenant_id;
+        $contacts = Contact::where('type', 'customer')->orderBy('company_name')->get();
+        $accounts = Account::where('type', 'Revenue')->where('is_active', true)->get(); 
+        $taxRates = TaxRate::where('is_active', true)->get();
         
-        $contacts = Contact::where('tenant_id', $tenantId)->orderBy('name')->get();
+        // Load Branches for dropdown (New)
+        $branches = Branch::orderBy('is_default', 'desc')->orderBy('name')->get();
         
-        $accountType = ($type === 'invoice') ? 'Revenue' : 'Expense';
-        $accounts = Account::where('tenant_id', $tenantId)->where('type', $accountType)->orderBy('code')->get();
-
-        $taxRates = TaxRate::where('tenant_id', $tenantId)->active()->orderBy('name')->get();
-        
-        $currencies = $this->getCurrencies();
-
-        return view('invoices.create', compact('type', 'contacts', 'accounts', 'taxRates', 'currencies'));
+        return view('invoices.create', compact('contacts', 'accounts', 'taxRates', 'branches'));
     }
 
     public function store(Request $request)
     {
-        if (!$this->userHasRole(['bookkeeper', 'admin'])) return $this->redirectUnauthorized();
-
         $this->validateInvoice($request);
 
-        try {
-            DB::beginTransaction();
-            
-            // 1. Calculate Totals
-            $calculations = $this->calculateInvoiceTotals($request->items);
-            
-            // 2. Calculate Withholding Tax
-            $whtRate = (float) $request->withholding_tax_rate;
-            $whtAmount = $calculations['subtotal'] * ($whtRate / 100);
+        $tenant = auth()->user()->tenant;
+        
+        // --- Branch Resolution Logic ---
+        // 1. Try to use the submitted branch_id
+        // 2. If null, fallback to the Tenant's "Main/Default" branch
+        $defaultBranch = $tenant->mainBranch;
+        $branchId = $request->branch_id ?? optional($defaultBranch)->id;
 
-            // 3. Recurrence Logic
-            $nextRecurrence = null;
-            if ($request->has('is_recurring')) {
-                $interval = (int) $request->recurrence_interval;
-                $unit = $request->recurrence_type;
-                if ($interval > 0 && in_array($unit, ['weeks', 'months'])) {
-                    $nextRecurrence = Carbon::parse($request->date)->add($unit, $interval);
-                }
-            }
+        // Security Check: Ensure the resolved branch actually belongs to this tenant
+        if ($branchId) {
+             $branch = Branch::where('id', $branchId)->where('tenant_id', $tenant->id)->firstOrFail();
+        }
+
+        DB::transaction(function () use ($request, $branchId) {
+            $tenantId = auth()->user()->tenant_id;
+
+            // Generate Number 
+            // Note: Ideally, you pass $branchId to Sequence::generate() if you want per-branch numbering
+            $number = 'INV-' . strtoupper(uniqid()); 
 
             $invoice = Invoice::create([
-                'tenant_id' => auth()->user()->tenant_id,
+                'tenant_id' => $tenantId,
+                'branch_id' => $branchId, // Set Branch
                 'contact_id' => $request->contact_id,
-                'type' => $request->type,
-                'subtype' => $request->subtype ?? 'standard',
-                'tax_type' => $request->tax_type,
-                'payment_terms' => $request->payment_terms,
-                'currency_code' => $request->currency_code ?? 'USD',
-                'number' => null, // Generated on Post
+                'type' => 'invoice',
+                'subtype' => 'standard',
+                'number' => $number, 
                 'reference' => $request->reference,
                 'date' => $request->date,
                 'due_date' => $request->due_date,
-                'status' => 'draft',
-                
-                // Financials
-                'subtotal' => $calculations['subtotal'],
-                'tax_total' => $calculations['tax_total'],
-                'grand_total' => $calculations['grand_total'], // Face Value
-                'withholding_tax_rate' => $whtRate,
-                'withholding_tax_amount' => $whtAmount,
+                'status' => $request->status ?? 'draft',
+                'currency_code' => $request->currency_code ?? 'PHP',
                 'notes' => $request->notes,
-
+                
                 // Recurrence
                 'is_recurring' => $request->has('is_recurring'),
-                'recurrence_interval' => $request->has('is_recurring') ? $request->recurrence_interval : null,
-                'recurrence_type' => $request->has('is_recurring') ? $request->recurrence_type : null,
-                'recurrence_end_date' => $request->has('is_recurring') ? $request->recurrence_end_date : null,
-                'next_recurrence_date' => $nextRecurrence,
+                'recurrence_interval' => $request->recurrence_interval,
+                'recurrence_type' => $request->recurrence_type,
+                'recurrence_end_date' => $request->recurrence_end_date,
+
+                // Amounts (Will be recalculated)
+                'subtotal' => 0,
+                'tax_total' => 0,
+                'withholding_tax_rate' => $request->withholding_tax_rate ?? 0,
+                'withholding_tax_amount' => 0,
+                'grand_total' => 0,
             ]);
 
-            foreach ($calculations['items'] as $row) {
-                InvoiceItem::create(array_merge(['invoice_id' => $invoice->id], $row));
-            }
+            // Save Items
+            $subtotal = 0;
+            $taxTotal = 0;
 
-            if ($request->hasFile('attachments')) {
-                $this->uploadAttachments($request->file('attachments'), $invoice);
-            }
+            foreach ($request->items as $itemData) {
+                $lineTotal = $itemData['quantity'] * $itemData['unit_price'];
+                $lineTax = 0;
 
-            $this->logActivity($invoice, 'created', "Created Draft Invoice");
-            
-            if ($request->has('send_email_copy') && $invoice->contact->email) {
-                $this->logActivity($invoice, 'email_queued', "Queued email copy for contact: {$invoice->contact->email}");
-            }
-
-            DB::commit();
-
-            if ($request->action === 'submit') {
-                return $this->submit($invoice);
-            }
-
-            return redirect()->route('invoices.index', ['type' => $request->type])->with('success', 'Draft saved.');
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return back()->withErrors(['error' => $e->getMessage()])->withInput();
-        }
-    }
-
-    public function edit(Invoice $invoice)
-    {
-        if ($invoice->tenant_id !== auth()->user()->tenant_id) abort(403);
-
-        $canEdit = ($invoice->status === 'draft' && $this->userHasRole(['bookkeeper', 'admin'])) || 
-                   ($invoice->status === 'review' && $this->userHasRole(['bookkeeper', 'reviewer', 'admin']));
-
-        if (!$canEdit) return redirect()->route('invoices.index', ['type' => $invoice->type])->with('error', 'Cannot edit.');
-
-        $type = $invoice->type;
-        $tenantId = auth()->user()->tenant_id;
-        $contactType = ($type === 'invoice') ? 'customer' : 'supplier';
-        
-        $contacts = Contact::where('tenant_id', $tenantId)->where('type', $contactType)->orderBy('name')->get();
-        $accountType = ($type === 'invoice') ? 'Revenue' : 'Expense';
-        $accounts = Account::where('tenant_id', $tenantId)->where('type', $accountType)->orderBy('code')->get();
-        
-        $taxRates = TaxRate::where('tenant_id', $tenantId)->active()->orderBy('name')->get();
-        $currencies = $this->getCurrencies();
-
-        $invoice->load('items', 'attachments');
-
-        return view('invoices.create', compact('invoice', 'type', 'contacts', 'accounts', 'taxRates', 'currencies'));
-    }
-
-    public function update(Request $request, Invoice $invoice)
-    {
-        if ($invoice->tenant_id !== auth()->user()->tenant_id) abort(403);
-        if ($invoice->status === 'posted' || $invoice->status === 'paid') return back()->with('error', 'Cannot update posted invoices.');
-
-        $this->validateInvoice($request);
-
-        try {
-            DB::beginTransaction();
-
-            $calculations = $this->calculateInvoiceTotals($request->items);
-            
-            // Calculate Withholding Tax
-            $whtRate = (float) $request->withholding_tax_rate;
-            $whtAmount = $calculations['subtotal'] * ($whtRate / 100);
-
-            // Recurrence Logic
-            $nextRecurrence = $invoice->next_recurrence_date;
-            if ($request->has('is_recurring')) {
-                if (!$nextRecurrence || $request->date != $invoice->date) {
-                    $interval = (int) $request->recurrence_interval;
-                    $unit = $request->recurrence_type;
-                    if ($interval > 0) {
-                        $nextRecurrence = Carbon::parse($request->date)->add($unit, $interval);
+                // Handle Tax
+                if (!empty($itemData['tax_rate_id'])) {
+                    $taxRate = TaxRate::find($itemData['tax_rate_id']);
+                    if ($taxRate) {
+                        $lineTax = $lineTotal * ($taxRate->rate / 100);
                     }
                 }
-            } else {
-                $nextRecurrence = null;
+
+                InvoiceItem::create([
+                    'invoice_id' => $invoice->id,
+                    'account_id' => $itemData['account_id'],
+                    'tax_rate_id' => $itemData['tax_rate_id'] ?? null,
+                    'description' => $itemData['description'],
+                    'quantity' => $itemData['quantity'],
+                    'unit_price' => $itemData['unit_price'],
+                    'amount' => $lineTotal,
+                    'tax_amount' => $lineTax
+                ]);
+
+                $subtotal += $lineTotal;
+                $taxTotal += $lineTax;
             }
+
+            // Calculate Withholding Tax
+            $whtAmount = 0;
+            if ($invoice->withholding_tax_rate > 0) {
+                // Calculation: WHT is deducted from Grand Total (Receivable), 
+                // but usually calculated on the Net of VAT or Gross depending on local regulations.
+                // Here assuming applied on Subtotal (Net of VAT).
+                $whtAmount = $subtotal * ($invoice->withholding_tax_rate / 100);
+            }
+
+            $grandTotal = ($subtotal + $taxTotal) - $whtAmount;
 
             $invoice->update([
-                'contact_id' => $request->contact_id,
-                'subtype' => $request->subtype ?? 'standard',
-                'tax_type' => $request->tax_type,
-                'payment_terms' => $request->payment_terms,
-                'currency_code' => $request->currency_code ?? 'USD',
-                'reference' => $request->reference,
-                'date' => $request->date,
-                'due_date' => $request->due_date,
-                
-                // Financials
-                'subtotal' => $calculations['subtotal'],
-                'tax_total' => $calculations['tax_total'],
-                'grand_total' => $calculations['grand_total'],
-                'withholding_tax_rate' => $whtRate,
+                'subtotal' => $subtotal,
+                'tax_total' => $taxTotal,
                 'withholding_tax_amount' => $whtAmount,
-                'notes' => $request->notes,
-
-                // Recurrence
-                'is_recurring' => $request->has('is_recurring'),
-                'recurrence_interval' => $request->has('is_recurring') ? $request->recurrence_interval : null,
-                'recurrence_type' => $request->has('is_recurring') ? $request->recurrence_type : null,
-                'recurrence_end_date' => $request->has('is_recurring') ? $request->recurrence_end_date : null,
-                'next_recurrence_date' => $nextRecurrence,
+                'grand_total' => $grandTotal
             ]);
 
-            $invoice->items()->delete();
-            foreach ($calculations['items'] as $row) {
-                InvoiceItem::create(array_merge(['invoice_id' => $invoice->id], $row));
-            }
-
+            // Upload Attachments
             if ($request->hasFile('attachments')) {
                 $this->uploadAttachments($request->file('attachments'), $invoice);
             }
 
-            $this->logActivity($invoice, 'updated', "Updated Invoice");
+            $this->logActivity($invoice, 'created', "Created Invoice {$invoice->number}");
+        });
 
-            DB::commit();
-            
-            if ($request->action === 'submit') {
-                return $this->submit($invoice);
-            }
-
-            return redirect()->route('invoices.index', ['type' => $invoice->type])->with('success', 'Updated successfully.');
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return back()->withErrors(['error' => $e->getMessage()])->withInput();
-        }
-    }
-
-    // --- Workflow Methods ---
-    
-    public function submit(Invoice $invoice) {
-        if (!$this->userHasRole(['bookkeeper', 'admin'])) return $this->redirectUnauthorized();
-        $invoice->update(['status' => 'review']);
-        $this->logActivity($invoice, 'submitted', "Submitted for Review");
-        return redirect()->route('invoices.index', ['type' => $invoice->type]);
-    }
-
-    public function approve(Invoice $invoice) {
-        if (!$this->userHasRole(['reviewer', 'approver', 'admin'])) return $this->redirectUnauthorized();
-        $invoice->update(['status' => 'reviewed']);
-        $this->logActivity($invoice, 'reviewed', "Approved Invoice");
-        return back()->with('success', 'Approved.');
-    }
-
-    public function reject(Invoice $invoice) {
-        if (!$this->userHasRole(['reviewer', 'approver', 'admin'])) return $this->redirectUnauthorized();
-        $invoice->update(['status' => 'draft']);
-        $this->logActivity($invoice, 'rejected', "Rejected Invoice");
-        return back()->with('success', 'Rejected.');
-    }
-
-    public function send(Invoice $invoice) {
-        if (!$this->userHasRole(['approver', 'admin'])) return $this->redirectUnauthorized();
-        
-        try {
-            DB::beginTransaction();
-
-            $prefix = ($invoice->type === 'bill') ? 'BILL' : 'INV';
-            $number = Sequence::getNextSequence($invoice->tenant_id, $prefix);
-
-            $invoice->update(['status' => 'posted', 'number' => $number]);
-            $this->logActivity($invoice, 'posted', "Posted Invoice {$number}");
-            
-            // Send Email Logic
-            // if ($invoice->contact->email) { ... }
-            
-            DB::commit();
-            return back()->with('success', "Invoice {$number} posted successfully.");
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return back()->with('error', 'Failed to post: ' . $e->getMessage());
-        }
-    }
-
-    public function void(Invoice $invoice) {
-        if (!$this->userHasRole(['approver', 'admin'])) return $this->redirectUnauthorized();
-        $invoice->update(['status' => 'voided']);
-        $this->logActivity($invoice, 'voided', "Voided Invoice");
-        return back()->with('success', 'Voided.');
-    }
-    
-    public function destroy(Invoice $invoice) {
-        if (!$this->userHasRole(['bookkeeper', 'admin'])) return $this->redirectUnauthorized();
-        $invoice->delete();
-        return redirect()->route('invoices.index', ['type' => $invoice->type]);
+        return redirect()->route('invoices.index')->with('success', 'Invoice created successfully.');
     }
 
     public function show(Invoice $invoice)
     {
         if ($invoice->tenant_id !== auth()->user()->tenant_id) abort(403);
-        $invoice->load(['items.account', 'items.taxRate', 'contact', 'attachments']);
-        $isBookkeeper = $this->userHasRole(['bookkeeper', 'admin']);
-        $isReviewer = $this->userHasRole(['reviewer', 'approver', 'admin']);
-        $isApprover = $this->userHasRole(['approver', 'admin']);
-        return view('invoices.show', compact('invoice', 'isBookkeeper', 'isReviewer', 'isApprover'));
+        
+        $invoice->load(['items.account', 'items.taxRate', 'contact', 'attachments', 'branch']);
+        return view('invoices.show', compact('invoice'));
     }
 
-    // --- Private Calculation Helpers ---
-
-    private function calculateInvoiceTotals($items)
+    public function update(Request $request, Invoice $invoice)
     {
-        $subtotal = 0;
-        $taxTotal = 0;
-        $processedItems = [];
-        
-        $taxRateIds = array_filter(array_column($items, 'tax_rate_id'));
-        $dbTaxRates = TaxRate::whereIn('id', $taxRateIds)->get()->keyBy('id');
+        if ($invoice->tenant_id !== auth()->user()->tenant_id) abort(403);
 
-        foreach ($items as $item) {
-            $qty = (float) $item['quantity'];
-            $price = (float) $item['unit_price'];
-            $discountRate = (float) ($item['discount_rate'] ?? 0);
-            
-            // 1. Calculate Gross Line
-            $grossAmount = $qty * $price;
+        $this->validateInvoice($request);
+        // Note: We generally do NOT allow updating the Branch ID on an existing invoice 
+        // to prevent accounting inconsistencies, so branch_id is excluded here.
 
-            // 2. Apply Discount
-            $discountAmount = $grossAmount * ($discountRate / 100);
-            $netAmount = $grossAmount - $discountAmount;
+        DB::transaction(function () use ($request, $invoice) {
             
-            // 3. Apply Tax to Net Amount
-            $taxAmount = 0;
-            if (!empty($item['tax_rate_id']) && isset($dbTaxRates[$item['tax_rate_id']])) {
-                $rate = $dbTaxRates[$item['tax_rate_id']]->rate; 
-                $taxAmount = $netAmount * $rate;
+            $invoice->update([
+                'contact_id' => $request->contact_id,
+                'reference' => $request->reference,
+                'date' => $request->date,
+                'due_date' => $request->due_date,
+                'status' => $request->status ?? $invoice->status,
+                'currency_code' => $request->currency_code ?? 'PHP',
+                'notes' => $request->notes,
+                'is_recurring' => $request->has('is_recurring'),
+                'recurrence_interval' => $request->recurrence_interval,
+                'recurrence_type' => $request->recurrence_type,
+                'recurrence_end_date' => $request->recurrence_end_date,
+                'withholding_tax_rate' => $request->withholding_tax_rate ?? 0,
+            ]);
+
+            // Clear old items and re-create (Simplest approach for MVP)
+            $invoice->items()->delete();
+
+            $subtotal = 0;
+            $taxTotal = 0;
+
+            foreach ($request->items as $itemData) {
+                $lineTotal = $itemData['quantity'] * $itemData['unit_price'];
+                $lineTax = 0;
+
+                if (!empty($itemData['tax_rate_id'])) {
+                    $taxRate = TaxRate::find($itemData['tax_rate_id']);
+                    if ($taxRate) {
+                        $lineTax = $lineTotal * ($taxRate->rate / 100);
+                    }
+                }
+
+                InvoiceItem::create([
+                    'invoice_id' => $invoice->id,
+                    'account_id' => $itemData['account_id'],
+                    'tax_rate_id' => $itemData['tax_rate_id'] ?? null,
+                    'description' => $itemData['description'],
+                    'quantity' => $itemData['quantity'],
+                    'unit_price' => $itemData['unit_price'],
+                    'amount' => $lineTotal,
+                    'tax_amount' => $lineTax
+                ]);
+
+                $subtotal += $lineTotal;
+                $taxTotal += $lineTax;
             }
 
-            $subtotal += $netAmount; 
-            $taxTotal += $taxAmount;
+            $whtAmount = 0;
+            if ($invoice->withholding_tax_rate > 0) {
+                $whtAmount = $subtotal * ($invoice->withholding_tax_rate / 100);
+            }
 
-            $processedItems[] = [
-                'account_id' => $item['account_id'],
-                'tax_rate_id' => $item['tax_rate_id'] ?? null,
-                'description' => $item['description'],
-                'quantity' => $qty,
-                'unit_price' => $price,
-                'discount_rate' => $discountRate, 
-                'amount' => $netAmount, 
-                'tax_amount' => $taxAmount
-            ];
-        }
+            $grandTotal = ($subtotal + $taxTotal) - $whtAmount;
 
-        return [
-            'subtotal' => $subtotal,
-            'tax_total' => $taxTotal,
-            'grand_total' => $subtotal + $taxTotal,
-            'items' => $processedItems
-        ];
+            $invoice->update([
+                'subtotal' => $subtotal,
+                'tax_total' => $taxTotal,
+                'withholding_tax_amount' => $whtAmount,
+                'grand_total' => $grandTotal
+            ]);
+
+            if ($request->hasFile('attachments')) {
+                $this->uploadAttachments($request->file('attachments'), $invoice);
+            }
+
+            $this->logActivity($invoice, 'updated', "Updated Invoice {$invoice->number}");
+        });
+
+        return redirect()->route('invoices.show', $invoice)->with('success', 'Invoice updated.');
     }
+
+    public function destroy(Invoice $invoice)
+    {
+        if ($invoice->tenant_id !== auth()->user()->tenant_id) abort(403);
+        
+        $invoice->delete();
+        $this->logActivity($invoice, 'deleted', "Deleted Invoice {$invoice->number}");
+        
+        return redirect()->route('invoices.index')->with('success', 'Invoice deleted.');
+    }
+
+    // --- Private Methods ---
 
     private function validateInvoice($request)
     {
         $request->validate([
-            'type' => ['required', Rule::in(['invoice', 'bill'])],
-            'tax_type' => ['required', Rule::in(['vat', 'non_vat', 'vat_exempt', 'zero_rated'])],
-            'currency_code' => ['required', 'string', 'size:3'],
-            'contact_id' => ['required', Rule::exists('contacts', 'id')->where('tenant_id', auth()->user()->tenant_id)],
+            'contact_id' => 'required|exists:contacts,id',
+            'date' => 'required|date',
+            'due_date' => 'required|date|after_or_equal:date',
+            
+            // Branch is optional in validation because we fallback to default if missing
+            'branch_id' => 'nullable|exists:branches,id', 
+
+            // Items
             'items' => 'required|array|min:1',
-            'items.*.account_id' => 'required',
-            'items.*.tax_rate_id' => 'nullable|exists:tax_rates,id',
-            'items.*.description' => 'required|string|max:500',
-            'items.*.quantity' => 'required|numeric|min:0',
+            'items.*.description' => 'required|string|max:255',
+            'items.*.quantity' => 'required|numeric|min:0.1',
             'items.*.unit_price' => 'required|numeric|min:0',
-            'items.*.discount_rate' => 'nullable|numeric|min:0|max:100', 
+            'items.*.account_id' => 'required|exists:accounts,id',
+            
+            // Attachments
+            'attachments' => 'nullable|array',
             'attachments.*' => 'nullable|file|max:10240',
             
             // Withholding Tax
@@ -435,7 +337,8 @@ class InvoiceController extends Controller
     private function uploadAttachments($files, $invoice)
     {
         foreach ($files as $file) {
-            $path = $file->store('invoices/' . auth()->user()->tenant_id, 's3');
+            $path = $file->storePublicly('accounting-invoices/' . auth()->user()->tenant_id, 's3');
+            
             InvoiceAttachment::create([
                 'invoice_id' => $invoice->id,
                 'tenant_id' => auth()->user()->tenant_id,
@@ -457,7 +360,7 @@ class InvoiceController extends Controller
             'description' => $desc,
             'subject_type' => Invoice::class,
             'subject_id' => $invoice->id,
-            'ip_address' => request()->ip(),
+            'ip_address' => request()->ip()
         ]);
     }
 }

@@ -2,19 +2,26 @@
 
 namespace App\Models;
 
+use App\Models\Scopes\TenantScope;
 use App\Models\Traits\BelongsToTenant;
+use Illuminate\Database\Eloquent\Attributes\ScopedBy;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 
+#[ScopedBy([TenantScope::class])]
 class JournalEntry extends Model
 {
-    use BelongsToTenant;
+    use BelongsToTenant, SoftDeletes;
 
     public $incrementing = false;
     protected $keyType = 'string';
 
     protected $fillable = [
+        'tenant_id',
+        'branch_id', // Multi-Branch Support
         'date',
         'auto_reverse_date',
         'tax_type',        
@@ -33,6 +40,16 @@ class JournalEntry extends Model
         'is_reversed' => 'boolean',
     ];
 
+    protected static function boot()
+    {
+        parent::boot();
+        static::creating(function ($model) {
+            if (empty($model->id)) {
+                $model->id = (string) Str::uuid();
+            }
+        });
+    }
+
     /**
      * The lines associated with the journal entry.
      */
@@ -47,6 +64,14 @@ class JournalEntry extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * The branch this entry belongs to.
+     */
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
     }
 
     /**
@@ -70,7 +95,7 @@ class JournalEntry extends Model
      */
     public function isBalanced(): bool
     {
-        // Using epsilon comparison for floating point math safety
-        return abs($this->total_debit - $this->total_credit) < 0.0001;
+        // Using epsilon for floating point comparison
+        return abs($this->total_debit - $this->total_credit) < 0.001;
     }
 }

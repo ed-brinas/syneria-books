@@ -15,6 +15,7 @@ return new class extends Migration
         Schema::create('journal_entries', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('tenant_id')->constrained()->onDelete('cascade');
+            $table->foreignId('branch_id')->nullable()->after('tenant_id')->constrained('branches');
             $table->date('date');
             $table->date('auto_reverse_date')->nullable();
             $table->string('reference')->nullable();

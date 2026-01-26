@@ -13,6 +13,7 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->foreignUuid('tenant_id')->constrained()->onDelete('cascade');
             $table->foreignUuid('contact_id')->constrained(); 
+            $table->foreignId('branch_id')->nullable()->after('tenant_id')->constrained('branches');
             $table->enum('type', ['invoice', 'bill']); 
             $table->enum('subtype', ['sales_invoice', 'service_invoice', 'standard'])->default('standard');
             $table->enum('tax_type', ['vat', 'non_vat', 'vat_exempt', 'zero_rated'])->default('vat');

@@ -2,20 +2,25 @@
 
 namespace App\Models;
 
+use App\Models\Scopes\TenantScope;
+use App\Models\Traits\BelongsToTenant;
+use Illuminate\Database\Eloquent\Attributes\ScopedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
+#[ScopedBy([TenantScope::class])]
 class Invoice extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, BelongsToTenant;
 
     public $incrementing = false;
     protected $keyType = 'string';
 
     protected $fillable = [
         'tenant_id',
+        'branch_id', // Multi-Branch Support
         'contact_id',
         'type',
         'subtype',
@@ -59,7 +64,9 @@ class Invoice extends Model
     {
         parent::boot();
         static::creating(function ($model) {
-            $model->id = (string) Str::uuid();
+            if (empty($model->id)) {
+                $model->id = (string) Str::uuid();
+            }
         });
     }
 
@@ -78,13 +85,8 @@ class Invoice extends Model
         return $this->hasMany(InvoiceAttachment::class);
     }
 
-    public function tenant()
+    public function branch()
     {
-        return $this->belongsTo(Tenant::class); 
-    }
-
-    public function getIsLockedAttribute()
-    {
-        return in_array($this->status, ['review', 'reviewed', 'posted', 'paid', 'voided']);
+        return $this->belongsTo(Branch::class);
     }
 }
