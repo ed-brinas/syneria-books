@@ -36,9 +36,14 @@ Route::middleware(['auth'])->group(function () {
             Route::put('/', 'update')->name('update');
             Route::post('/logo', 'uploadLogo')->name('logo');
             
+            // Branch Management
+            Route::post('/branch', 'storeBranch')->name('branch.store');
+            Route::put('/branch/{branch}', 'updateBranch')->name('branch.update');
+            Route::delete('/branch/{branch}', 'destroyBranch')->name('branch.destroy');
+
             // Bank Account Management
             Route::post('/bank', 'storeBank')->name('bank.store');
-            Route::put('/bank/{bankAccount}', 'updateBank')->name('bank.update'); // Added this route
+            Route::put('/bank/{bankAccount}', 'updateBank')->name('bank.update'); 
             Route::delete('/bank/{bankAccount}', 'destroyBank')->name('bank.destroy');
         });
 

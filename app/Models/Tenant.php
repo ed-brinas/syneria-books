@@ -52,7 +52,15 @@ class Tenant extends Model
     {
         // 1. If we have a stored path (and it's not empty), return the Storage URL
         if (!empty($this->logo_path)) {
-            return Storage::disk('s3')->url($this->logo_path);
+            try {
+                return Storage::disk('s3')->temporaryUrl(
+                    $this->logo_path,
+                    now()->addMinutes(60)
+                );
+            } catch (\Exception $e) {
+                // Fallback for public buckets or drivers that don't support temp URLs
+                return Storage::disk('s3')->url($this->logo_path);
+            }
         }
 
         // 2. Fallback: Generate UI Avatar
@@ -65,6 +73,14 @@ class Tenant extends Model
     public function users(): HasMany
     {
         return $this->hasMany(User::class);
+    }
+
+    /**
+     * Get the bank accounts for the tenant.
+     */
+    public function bankAccounts(): HasMany
+    {
+        return $this->hasMany(BankAccount::class);
     }
 
     /**

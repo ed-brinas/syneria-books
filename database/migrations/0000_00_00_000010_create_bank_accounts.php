@@ -21,6 +21,7 @@ return new class extends Migration
             $table->text('account_number');
             $table->text('branch_code')->nullable();
             $table->text('swift_code')->nullable();
+            $table->text('brstn')->nullable();
             $table->text('address')->nullable();
             $table->boolean('is_active')->default(true);
             $table->timestamps();

@@ -14,6 +14,16 @@
             {{-- Combined Filter & Search Form --}}
             <form action="{{ route('journals.index') }}" method="GET" class="d-flex gap-2">
                 
+                {{-- Branch Filter (New - Critical for Compliance) --}}
+                <select name="branch_id" class="form-select form-select-sm" onchange="this.form.submit()" style="min-width: 150px; border-color: #ced4da;">
+                    <option value="" {{ request('branch_id') == '' ? 'selected' : '' }}>All Branches</option>
+                    @foreach($branches as $branch)
+                        <option value="{{ $branch->id }}" {{ request('branch_id') == $branch->id ? 'selected' : '' }}>
+                            {{ $branch->name }}
+                        </option>
+                    @endforeach
+                </select>
+
                 {{-- Status Filter Dropdown --}}
                 <select name="status" class="form-select form-select-sm" onchange="this.form.submit()" style="min-width: 140px; border-color: #ced4da;">
                     <option value="all" {{ request('status') == 'all' ? 'selected' : '' }}>All Statuses</option>
@@ -30,7 +40,7 @@
                         <i class="bi bi-search"></i>
                     </button>
                     {{-- Show Clear button if any filter is active --}}
-                    @if(request('search') || (request('status') && request('status') !== 'all'))
+                    @if(request('search') || (request('status') && request('status') !== 'all') || request('branch_id'))
                         <a href="{{ route('journals.index') }}" class="btn btn-outline-secondary" title="Clear All Filters">
                             <i class="bi bi-x-lg"></i>
                         </a>
@@ -67,6 +77,7 @@
                         <tr>
                             <th class="ps-4">Date</th>
                             <th>Reference</th>
+                            <th>Branch</th> {{-- Added Branch Column --}}
                             <th>Description</th>
                             <th class="text-end">Amount</th>
                             <th class="text-center">Status</th>
@@ -76,7 +87,6 @@
                     <tbody>
                         @forelse($entries as $entry)
                         @php
-                            // Determine User Role for this specific loop iteration to drive dropdown logic
                             $userRole = strtolower(auth()->user()->role ?? '');
                         @endphp
                         <tr>
@@ -89,7 +99,11 @@
                                 @endif
                             </td>
                             <td>
-                                <div class="fw-bold text-truncate" style="max-width: 300px;">{{ $entry->description }}</div>
+                                <span class="badge bg-light text-dark border">{{ $entry->branch->code ?? 'UNK' }}</span>
+                                <small class="text-muted ms-1">{{ Str::limit($entry->branch->name ?? '', 15) }}</small>
+                            </td>
+                            <td>
+                                <div class="fw-bold text-truncate" style="max-width: 250px;">{{ $entry->description }}</div>
                                 <small class="text-muted">
                                     {{ $entry->lines->count() }} lines
                                 </small>
@@ -123,7 +137,6 @@
                                         </li>     
                                         <li><hr class="dropdown-divider"></li>                                   
                                         
-                                        {{-- 1. Draft Actions (Bookkeeper) --}}
                                         @if($entry->status === 'draft')
                                             @if($userRole === 'bookkeeper')
                                                 <li><h6 class="dropdown-header">Draft Actions</h6></li>
@@ -156,11 +169,8 @@
                                                         <i class="bi bi-trash me-2"></i>Delete Draft
                                                     </button>
                                                 </li>
-                                            @else
-                                                <li><span class="dropdown-item-text text-muted small">Draft (Bookkeeper Only)</span></li>
                                             @endif
 
-                                        {{-- 2. Review Actions (Reviewer) --}}
                                         @elseif($entry->status === 'review')
                                             @if($userRole === 'reviewer')
                                                 <li><h6 class="dropdown-header">Review Actions</h6></li>
@@ -188,11 +198,8 @@
                                                         <i class="bi bi-x-circle me-2"></i>Reject
                                                     </button>
                                                 </li>
-                                            @else
-                                                <li><span class="dropdown-item-text text-muted small">Pending Review</span></li>
                                             @endif
 
-                                        {{-- 3. Reviewed Actions (Approver) --}}
                                         @elseif($entry->status === 'reviewed')
                                             @if($userRole === 'approver')
                                                 <li><h6 class="dropdown-header">Approval Actions</h6></li>
@@ -220,11 +227,8 @@
                                                         <i class="bi bi-x-circle me-2"></i>Reject
                                                     </button>
                                                 </li>
-                                            @else
-                                                <li><span class="dropdown-item-text text-muted small">Pending Approval</span></li>
                                             @endif
 
-                                        {{-- 4. Posted Actions --}}
                                         @elseif($entry->status === 'posted')
                                             @if($userRole === 'approver')
                                                 <li><h6 class="dropdown-header">Compliance Actions</h6></li>
@@ -245,13 +249,7 @@
                                                         <i class="bi bi-slash-circle me-2"></i>Void Entry
                                                     </button>
                                                 </li>
-                                            @else
-                                                <li><span class="dropdown-item-text text-muted small">View Only</span></li>
                                             @endif
-                                        @endif
-                                        
-                                        @if($entry->status === 'voided')
-                                            <li><span class="dropdown-item-text text-muted small">No actions available</span></li>
                                         @endif
                                     </ul>
                                 </div>
@@ -259,7 +257,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="6" class="text-center py-5 text-muted">
+                            <td colspan="7" class="text-center py-5 text-muted">
                                 <i class="bi bi-journal-album fs-1 d-block mb-2"></i>
                                 No journal entries found.
                             </td>

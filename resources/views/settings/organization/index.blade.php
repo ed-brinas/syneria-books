@@ -23,6 +23,13 @@
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     @endif
+    
+    @if (session('error'))
+        <div class="alert alert-danger alert-dismissible fade show shadow-sm" role="alert">
+            <i class="bi bi-exclamation-octagon-fill me-2"></i> {{ session('error') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
 
     {{-- Global Error Alert --}}
     @if($errors->any())
@@ -33,236 +40,250 @@
 
     <div class="row g-4">
         <!-- LEFT COLUMN: Main Settings forms -->
-        <div class="col-lg-8">
+        <div class="col-lg-7">
             
             <!-- Details & Contact Info -->
-            <form action="{{ route('settings.organization.update') }}" method="POST">
+            <form action="{{ route('settings.organization.update') }}" method="POST" enctype="multipart/form-data">
                 @csrf
                 @method('PUT')
-
+                
                 <div class="card shadow-sm border-0 mb-4">
-                    <div class="card-header bg-white py-3 border-bottom">
-                        <h6 class="mb-0 fw-bold text-dark">
-                            <i class="bi bi-building-gear me-2 text-primary"></i>Organization Profile
-                        </h6>
+                    <div class="card-header bg-white py-3">
+                        <h6 class="mb-0 fw-bold">Company Profile</h6>
                     </div>
-                    
-                    <div class="card-body p-4">
-                        <!-- SECTION 1: Basic Details -->
-                        <h6 class="fw-bold text-secondary text-uppercase small mb-3">Basic Details</h6>
-                        <div class="row g-3 mb-4">
-                            <!-- Display Name (Company Name) -->
-                            <div class="col-md-12">
-                                <label class="form-label fw-bold">Display Name <span class="text-danger">*</span></label>
-                                <input type="text" name="company_name" class="form-control" value="{{ old('company_name', $tenant->company_name) }}" required>
-                                <div class="form-text">The name displayed on your dashboard and invoices.</div>
+                    <div class="card-body">
+                        <!-- Logo Upload (Fixed with fallback) -->
+                        <div class="d-flex align-items-center mb-4">
+                            <div class="me-3 position-relative">
+                                <img src="{{ $tenant->logo_url }}" 
+                                     alt="Logo" 
+                                     class="rounded-circle border" 
+                                     width="80" height="80" 
+                                     style="object-fit: cover;"
+                                     onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name={{ urlencode($tenant->company_name) }}&color=7F9CF5&background=EBF4FF';">
                             </div>
+                            <div>
+                                <label for="logo" class="form-label small fw-bold mb-1">Company Logo</label>
+                                <input type="file" name="logo" class="form-control form-control-sm @error('logo') is-invalid @enderror" accept="image/*">
+                                <div class="form-text small">Max 2MB. PNG, JPG.</div>
+                            </div>
+                        </div>
 
-                            <!-- Legal / Trading Name -->
+                        <!-- Basic Info -->
+                        <div class="row g-3">
                             <div class="col-md-6">
-                                <label class="form-label">Legal / Trading Name</label>
+                                <label class="form-label small text-muted">Company Name <span class="text-danger">*</span></label>
+                                <input type="text" name="company_name" class="form-control @error('company_name') is-invalid @enderror" value="{{ old('company_name', $tenant->company_name) }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small text-muted">Trade Name</label>
                                 <input type="text" name="trade_name" class="form-control" value="{{ old('trade_name', $tenant->trade_name) }}">
                             </div>
 
-                            <!-- Organization Type (Dynamic ID added) -->
                             <div class="col-md-6">
-                                <label class="form-label">Organization Type</label>
-                                <select name="business_type" id="business_type_select" class="form-select">
-                                    <option value="" disabled selected>Select type...</option>
-                                    {{-- Options will be populated by JS based on country --}}
-                                </select>
-                            </div>
-
-                            <!-- Registration Number -->
-                            <div class="col-md-6">
-                                <label class="form-label">Registration Number</label>
-                                <input type="text" name="company_reg_number" class="form-control" value="{{ old('company_reg_number', $tenant->company_reg_number) }}" placeholder="e.g. SEC/DTI Reg No.">
-                            </div>
-
-                            <!-- Tax ID -->
-                            <div class="col-md-6">
-                                <label class="form-label">Tax ID / TIN</label>
-                                <input type="text" name="tax_identification_number" class="form-control" value="{{ old('tax_identification_number', $tenant->tax_identification_number) }}" placeholder="000-000-000-000">
-                            </div>
-                        </div>
-
-                        <hr class="text-muted opacity-25 my-4">
-
-                        <!-- SECTION 2: Contact Information -->
-                        <h6 class="fw-bold text-secondary text-uppercase small mb-3">Contact Information</h6>
-                        <div class="row g-3">
-                            <div class="col-12">
-                                <label class="form-label">Postal / Physical Address</label>
-                                <textarea name="business_address" class="form-control" rows="2">{{ old('business_address', $tenant->business_address) }}</textarea>
-                            </div>
-
-                            <div class="col-md-5">
-                                <label class="form-label">City</label>
-                                <input type="text" name="city" class="form-control" value="{{ old('city', $tenant->city) }}">
-                            </div>
-
-                            <div class="col-md-3">
-                                <label class="form-label">Postal Code</label>
-                                <input type="text" name="postal_code" class="form-control" value="{{ old('postal_code', $tenant->postal_code) }}">
-                            </div>
-
-                            <!-- Country (Dynamic ID added) -->
-                            <div class="col-md-4">
-                                <label class="form-label">Country</label>
-                                <select name="country" id="country_select" class="form-select">
-                                    <option value="" disabled>Select Country...</option>
-                                    @foreach($countries as $code => $name)
-                                        <option value="{{ $code }}" {{ old('country', $tenant->country) == $code ? 'selected' : '' }}>
-                                            {{ $name }}
-                                        </option>
+                                <label class="form-label small text-muted">Business Type</label>
+                                <select name="business_type" class="form-select" id="business_type_select">
+                                    <option value="">Select Type</option>
+                                    @foreach($businessTypes as $key => $label)
+                                        <option value="{{ $key }}" {{ old('business_type', $tenant->business_type) == $key ? 'selected' : '' }}>{{ $label }}</option>
                                     @endforeach
                                 </select>
                             </div>
-                        </div>
+                            <div class="col-md-6">
+                                <label class="form-label small text-muted">Country</label>
+                                <select name="country" class="form-select @error('country') is-invalid @enderror" id="country_select">
+                                    @foreach($countries as $code => $name)
+                                        <option value="{{ $code }}" {{ old('country', $tenant->country) == $code ? 'selected' : '' }}>{{ $name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
 
-                        <!-- Single Submit Button for the Unified Form -->
-                        <div class="mt-4 text-end">
-                            <button type="submit" class="btn btn-primary px-4">
-                                <i class="bi bi-check-lg me-1"></i> Save Changes
-                            </button>
+                            <!-- Registration Details -->
+                            <div class="col-md-6">
+                                <label class="form-label small text-muted">TIN (Tax ID)</label>
+                                <input type="text" name="tax_identification_number" class="form-control" value="{{ old('tax_identification_number', $tenant->tax_identification_number) }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small text-muted">Registration / SEC No.</label>
+                                <input type="text" name="company_reg_number" class="form-control" value="{{ old('company_reg_number', $tenant->company_reg_number) }}">
+                            </div>
+
+                            <!-- Address -->
+                            <div class="col-12">
+                                <label class="form-label small text-muted">Registered Address <span class="text-danger">*</span></label>
+                                <textarea name="business_address" class="form-control @error('business_address') is-invalid @enderror" rows="2" required>{{ old('business_address', $tenant->business_address) }}</textarea>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label small text-muted">City</label>
+                                <input type="text" name="city" class="form-control @error('city') is-invalid @enderror" value="{{ old('city', $tenant->city) }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small text-muted">Postal Code</label>
+                                <input type="text" name="postal_code" class="form-control @error('postal_code') is-invalid @enderror" value="{{ old('postal_code', $tenant->postal_code) }}" required>
+                            </div>
                         </div>
+                    </div>
+                    <div class="card-footer bg-white text-end py-3">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save me-1"></i> Save Changes
+                        </button>
                     </div>
                 </div>
             </form>
+        </div>
 
-            <!-- SECTION 3: Financial & Banking -->
+        <!-- RIGHT COLUMN: Branches & Banking -->
+        <div class="col-lg-5">
+
+            <!-- BRANCH MANAGEMENT (New) -->
             <div class="card shadow-sm border-0 mb-4">
-                <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
-                    <h6 class="mb-0 fw-bold text-dark"><i class="bi bi-bank me-2 text-primary"></i>Bank Accounts</h6>
-                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addBankModal">
-                        <i class="bi bi-plus-lg me-1"></i> Add Bank Account
+                <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0 fw-bold">Branches & Locations</h6>
+                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addBranchModal">
+                        <i class="bi bi-plus-lg"></i> Add Branch
                     </button>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0">
-                            <thead class="bg-light text-secondary small text-uppercase">
+                        <table class="table table-hover align-middle mb-0 text-sm">
+                            <thead class="bg-light">
                                 <tr>
-                                    <th class="ps-4">Bank Name</th>
-                                    <th>Account Name</th>
-                                    <th>Account Number</th>
-                                    <th>Currency</th>
-                                    <th class="text-end pe-4">Actions</th>
+                                    <th class="ps-3">Code</th>
+                                    <th>Name</th>
+                                    <th>Status</th>
+                                    <th class="text-end pe-3">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                @if(isset($tenant->bankAccounts) && count($tenant->bankAccounts) > 0)
-                                    @foreach($tenant->bankAccounts as $bank)
-                                        <tr>
-                                            <td class="ps-4 fw-bold text-dark">{{ $bank->bank_name }}</td>
-                                            <td>{{ $bank->account_name }}</td>
-                                            <td class="font-monospace">{{ $bank->account_number }}</td>
-                                            <td><span class="badge bg-light text-dark border">{{ $bank->currency }}</span></td>
-                                            <td class="text-end pe-4">
-                                                 <!-- Edit Button triggering Modal -->
-                                                 <button type="button" 
-                                                        class="btn btn-link text-primary p-0 me-2" 
-                                                        title="Edit Bank" 
+                                @forelse($branches as $branch)
+                                <tr>
+                                    <td class="ps-3 fw-bold font-monospace text-muted">{{ $branch->code }}</td>
+                                    <td>
+                                        <div class="fw-bold text-dark">{{ $branch->name }}</div>
+                                        @if($branch->is_default)
+                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill" style="font-size: 0.65rem;">Head Office</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @if($branch->is_active ?? true)
+                                            <span class="badge bg-success-subtle text-success">Active</span>
+                                        @else
+                                            <span class="badge bg-secondary-subtle text-secondary">Inactive</span>
+                                        @endif
+                                    </td>
+                                    <td class="text-end pe-3">
+                                        <div class="dropdown">
+                                            <button class="btn btn-sm btn-link text-muted p-0" data-bs-toggle="dropdown">
+                                                <i class="bi bi-three-dots-vertical"></i>
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                                                <li>
+                                                    <button class="dropdown-item small" 
                                                         data-bs-toggle="modal" 
-                                                        data-bs-target="#editBankModal"
-                                                        data-update-url="{{ route('settings.organization.bank.update', $bank->id) }}"
-                                                        data-bank-id="{{ $bank->id }}"
-                                                        data-bank-name="{{ $bank->bank_name }}"
-                                                        data-account-name="{{ $bank->account_name }}"
-                                                        data-account-number="{{ $bank->account_number }}"
-                                                        data-currency="{{ $bank->currency }}"
-                                                        data-branch-code="{{ $bank->branch_code }}"
-                                                        data-swift-code="{{ $bank->swift_code }}"
-                                                        data-address="{{ $bank->address }}">
-                                                    <i class="bi bi-pencil-square"></i>
-                                                </button>
-
-                                                <!-- Delete Button triggering Modal -->
-                                                <button type="button" 
-                                                        class="btn btn-link text-danger p-0" 
-                                                        title="Remove / Deactivate" 
+                                                        data-bs-target="#editBranchModal"
+                                                        data-branch-id="{{ $branch->id }}"
+                                                        data-branch-name="{{ $branch->name }}"
+                                                        data-branch-code="{{ $branch->code }}"
+                                                        data-branch-tin="{{ $branch->tin }}"
+                                                        data-branch-rdo="{{ $branch->rdo_code ?? '' }}"
+                                                        data-branch-address="{{ $branch->address }}"
+                                                        data-branch-city="{{ $branch->city }}"
+                                                        data-branch-zip="{{ $branch->zip_code }}"
+                                                        data-branch-phone="{{ $branch->phone ?? '' }}"
+                                                        data-branch-email="{{ $branch->email ?? '' }}"
+                                                        data-branch-active="{{ $branch->is_active ?? 1 }}"
+                                                        data-branch-default="{{ $branch->is_default }}"
+                                                        data-update-url="{{ route('settings.organization.branch.update', $branch->id) }}">
+                                                        <i class="bi bi-pencil me-2"></i> Edit Details
+                                                    </button>
+                                                </li>
+                                                @if(!$branch->is_default)
+                                                <li><hr class="dropdown-divider"></li>
+                                                <li>
+                                                    <button class="dropdown-item small text-danger" 
                                                         data-bs-toggle="modal" 
-                                                        data-bs-target="#deleteBankModal"
-                                                        data-action="{{ route('settings.organization.bank.destroy', $bank->id) }}"
-                                                        data-bank-name="{{ $bank->bank_name }}"
-                                                        data-account-number="{{ $bank->account_number }}">
-                                                    <i class="bi bi-trash"></i>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                @else
-                                    <tr>
-                                        <td colspan="5" class="text-center py-4 text-muted">
-                                            <div class="py-3">
-                                                <i class="bi bi-credit-card-2-front display-6 d-block mb-2 text-secondary opacity-50"></i>
-                                                No bank accounts added yet.
-                                            </div>
-                                        </td>
-                                    </tr>
-                                @endif
+                                                        data-bs-target="#deleteBranchModal"
+                                                        data-branch-id="{{ $branch->id }}"
+                                                        data-branch-name="{{ $branch->name }}"
+                                                        data-delete-url="{{ route('settings.organization.branch.destroy', $branch->id) }}">
+                                                        <i class="bi bi-archive me-2"></i> Deactivate
+                                                    </button>
+                                                </li>
+                                                @endif
+                                            </ul>
+                                        </div>
+                                    </td>
+                                </tr>
+                                @empty
+                                <tr>
+                                    <td colspan="4" class="text-center py-3 text-muted">No branches found.</td>
+                                </tr>
+                                @endforelse
                             </tbody>
                         </table>
                     </div>
                 </div>
             </div>
 
-        </div>
-
-        <!-- RIGHT COLUMN: Branding & System Info -->
-        <div class="col-lg-4">
-            
-            <!-- Branding / Logo Card -->
-            <div class="card shadow-sm border-0 mb-4">
-                <div class="card-header bg-white py-3 border-bottom">
-                    <h6 class="mb-0 fw-bold text-dark">Branding</h6>
-                </div>
-                <div class="card-body p-4 text-center">
-                    <form action="{{ route('settings.organization.logo') }}" method="POST" enctype="multipart/form-data">
-                        @csrf
-                        
-                        <div class="mb-3 position-relative d-inline-block">
-                            <!-- Use the accessor directly -->
-                            <img src="{{ $tenant->logo_url }}" class="img-fluid rounded border p-1" style="max-height: 150px; width: auto;" alt="Organization Logo">
-                        </div>
-
-                        <div class="small text-muted mb-3">
-                            Upload your organization logo.<br>
-                            Recommended size: 400x400px (JPG/PNG).
-                        </div>
-
-                        <div class="input-group input-group-sm">
-                            <input type="file" name="photo" class="form-control" accept="image/png, image/jpeg">
-                            <button class="btn btn-outline-secondary" type="submit">Upload</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
-            <!-- Subscription / System Info Card -->
+            <!-- BANK ACCOUNTS -->
             <div class="card shadow-sm border-0">
-                <div class="card-header bg-white py-3 border-bottom">
-                    <h6 class="mb-0 fw-bold text-dark">Subscription Details</h6>
+                <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0 fw-bold">Bank Accounts</h6>
+                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addBankModal">
+                        <i class="bi bi-plus-lg"></i> Add Account
+                    </button>
                 </div>
-                <div class="card-body p-4">
-                    <div class="mb-3">
-                        <label class="small text-muted text-uppercase fw-bold">Current Plan</label>
-                        <div>
-                            <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
-                                {{ ucfirst($tenant->subscription_plan) }} Plan
-                            </span>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        @forelse($tenant->bankAccounts as $bank)
+                        <div class="list-group-item d-flex justify-content-between align-items-center px-3 py-3">
+                            <div>
+                                <div class="fw-bold text-dark">{{ $bank->bank_name }}</div>
+                                <div class="text-muted small font-monospace">
+                                    {{ $bank->currency }} • {{ Str::mask($bank->account_number, '*', -4) }}
+                                </div>
+                            </div>
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-link text-muted p-0" type="button" data-bs-toggle="dropdown">
+                                    <i class="bi bi-three-dots-vertical"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                                    <li>
+                                        <button class="dropdown-item small" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#editBankModal"
+                                            data-bank-id="{{ $bank->id }}"
+                                            data-bank-name="{{ $bank->bank_name }}"
+                                            data-account-name="{{ $bank->account_name }}"
+                                            data-account-number="{{ $bank->account_number }}"
+                                            data-currency="{{ $bank->currency }}"
+                                            data-branch-code="{{ $bank->branch_code }}"
+                                            data-swift-code="{{ $bank->swift_code }}"
+                                            data-address="{{ $bank->address }}"
+                                            data-update-url="{{ route('settings.organization.bank.update', $bank->id) }}">
+                                            <i class="bi bi-pencil me-2"></i> Edit Details
+                                        </button>
+                                    </li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <button class="dropdown-item small text-danger" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#deleteBankModal"
+                                            data-bank-name="{{ $bank->bank_name }}"
+                                            data-delete-url="{{ route('settings.organization.bank.destroy', $bank->id) }}">
+                                            <i class="bi bi-trash me-2"></i> Deactivate
+                                        </button>
+                                    </li>
+                                </ul>
+                            </div>
                         </div>
+                        @empty
+                        <div class="p-4 text-center text-muted small">
+                            No bank accounts linked yet.
+                        </div>
+                        @endforelse
                     </div>
-
-                    @if($tenant->subscription_expires_at && $tenant->subscription_plan!='free')
-                    <div class="mb-0">
-                        <label class="small text-muted text-uppercase fw-bold">Expires On</label>
-                        <div class="text-dark">{{ $tenant->subscription_expires_at->format('M d, Y') }}</div>
-                    </div>
-                    @endif
-                    
-                    <hr>
-                    <a href="#" class="btn btn-sm btn-link text-decoration-none p-0">Manage Subscription &rarr;</a>
                 </div>
             </div>
 
@@ -270,345 +291,402 @@
     </div>
 </div>
 
-<!-- Modal: Add Bank Account -->
-<div class="modal fade" id="addBankModal" tabindex="-1" aria-hidden="true">
+<!-- ================= MODALS ================= -->
+
+{{-- ADD BRANCH MODAL --}}
+<div class="modal fade" id="addBranchModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
+        <form action="{{ route('settings.organization.branch.store') }}" method="POST">
+            @csrf
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold">Add New Branch</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label small text-muted">Branch Name <span class="text-danger">*</span></label>
+                            <input type="text" name="name" class="form-control" placeholder="e.g. Cebu Branch" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">Branch Code <span class="text-danger">*</span></label>
+                            <input type="text" name="code" class="form-control" 
+                                placeholder="{{ $tenant->country === 'PH' ? 'e.g. 001' : 'e.g. HQ-01' }}" 
+                                maxlength="{{ $tenant->country === 'PH' ? '5' : '10' }}" 
+                                required>
+                            <div class="form-text small">
+                                @if($tenant->country === 'PH')
+                                    BIR Standard: 3-5 digits (e.g., 000 for HO).
+                                @else
+                                    Alphanumeric allowed.
+                                @endif
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">TIN (9-digit + suffix)</label>
+                            <input type="text" name="tin" class="form-control" placeholder="000-000-000-00001">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">RDO Code</label>
+                            <input type="text" name="rdo_code" class="form-control" placeholder="e.g. 050">
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label small text-muted">Address <span class="text-danger">*</span></label>
+                            <input type="text" name="address" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">City</label>
+                            <input type="text" name="city" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Zip Code</label>
+                            <input type="text" name="zip_code" class="form-control">
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Contact Phone</label>
+                            <input type="text" name="phone" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Contact Email</label>
+                            <input type="email" name="email" class="form-control">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Branch</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+{{-- EDIT BRANCH MODAL --}}
+<div class="modal fade" id="editBranchModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <form action="" method="POST" id="editBranchForm">
+            @csrf
+            @method('PUT')
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold">Edit Branch</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label small text-muted">Branch Name <span class="text-danger">*</span></label>
+                            <input type="text" name="name" id="edit_branch_name" class="form-control" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">Branch Code <span class="text-danger">*</span></label>
+                            <input type="text" name="code" id="edit_branch_code" class="form-control" 
+                                maxlength="{{ $tenant->country === 'PH' ? '5' : '10' }}" 
+                                required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">TIN</label>
+                            <input type="text" name="tin" id="edit_branch_tin" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">RDO Code</label>
+                            <input type="text" name="rdo_code" id="edit_branch_rdo" class="form-control">
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label small text-muted">Address</label>
+                            <input type="text" name="address" id="edit_branch_address" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">City</label>
+                            <input type="text" name="city" id="edit_branch_city" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Zip Code</label>
+                            <input type="text" name="zip_code" id="edit_branch_zip" class="form-control">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Phone</label>
+                            <input type="text" name="phone" id="edit_branch_phone" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Email</label>
+                            <input type="email" name="email" id="edit_branch_email" class="form-control">
+                        </div>
+                        
+                        <div class="col-12 border-top pt-3 mt-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="is_active" value="1" id="edit_branch_active">
+                                <label class="form-check-label" for="edit_branch_active">Branch is Active</label>
+                            </div>
+                            <div class="form-check mt-2" id="default_branch_option">
+                                <input class="form-check-input" type="checkbox" name="set_default" value="1" id="edit_branch_default">
+                                <label class="form-check-label text-primary" for="edit_branch_default">Set as Head Office (Default)</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+{{-- DELETE/DEACTIVATE BRANCH MODAL --}}
+<div class="modal fade" id="deleteBranchModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <form action="" method="POST" id="deleteBranchForm">
+            @csrf
+            @method('DELETE')
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title text-danger fw-bold">Deactivate Branch</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-2">Are you sure you want to deactivate <strong id="delete_branch_name"></strong>?</p>
+                    <div class="alert alert-warning small mb-0">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                        <strong>Compliance Notice:</strong> <br>
+                        This branch will be hidden from new transactions, but historical records will be preserved permanently for tax audit purposes.
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Confirm Deactivation</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+{{-- ADD BANK MODAL --}}
+<div class="modal fade" id="addBankModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
         <form action="{{ route('settings.organization.bank.store') }}" method="POST">
             @csrf
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title fw-bold">Add Bank Account</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    
-                    <!-- Section: Bank Details -->
-                    <h6 class="fw-bold text-secondary text-uppercase small mb-3">Bank Details</h6>
-                    
                     <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Bank Name <span class="text-danger">*</span></label>
-                            <input type="text" name="bank_name" class="form-control @error('bank_name', 'addBank') is-invalid @enderror" value="{{ old('bank_name') }}" placeholder="e.g. BDO, BPI" required>
-                            @error('bank_name', 'addBank')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
+                        <div class="col-12">
+                            <label class="form-label small text-muted">Bank Name</label>
+                            <input type="text" name="bank_name" class="form-control" placeholder="e.g. BDO, BPI" required>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Account Holder <span class="text-danger">*</span></label>
-                            <input type="text" name="account_name" class="form-control @error('account_name', 'addBank') is-invalid @enderror" value="{{ old('account_name') }}" placeholder="Company Name" required>
-                            @error('account_name', 'addBank')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
+                            <label class="form-label small text-muted">Account Name</label>
+                            <input type="text" name="account_name" class="form-control" required>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Account Number <span class="text-danger">*</span></label>
-                            <input type="text" name="account_number" class="form-control @error('account_number', 'addBank') is-invalid @enderror" value="{{ old('account_number') }}" required>
-                             @error('account_number', 'addBank')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Currency <span class="text-danger">*</span></label>
-                            <select name="currency" class="form-select @error('currency', 'addBank') is-invalid @enderror">
-                                <option value="" >Select one...</option>
+                            <label class="form-label small text-muted">Currency</label>
+                            <select name="currency" class="form-select">
                                 @foreach($currencies as $code => $name)
-                                    <option value="{{ $code }}" {{ (old('currency') == $code) ? 'selected' : '' }}>
-                                        {{ $code }} - {{ $name }}
-                                    </option>
+                                    <option value="{{ $code }}" {{ $code == 'PHP' ? 'selected' : '' }}>{{ $code }}</option>
                                 @endforeach
                             </select>
-                             @error('currency', 'addBank')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Branch Code</label>
-                            <input type="text" name="branch_code" class="form-control @error('branch_code', 'addBank') is-invalid @enderror" value="{{ old('branch_code') }}">
-                             @error('branch_code', 'addBank')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Swift Code</label>
-                            <input type="text" name="swift_code" class="form-control @error('swift_code', 'addBank') is-invalid @enderror" value="{{ old('swift_code') }}">
-                             @error('swift_code', 'addBank')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
                         </div>
                         <div class="col-12">
-                            <label class="form-label">Bank Address</label>
-                            <textarea name="address" class="form-control @error('address', 'addBank') is-invalid @enderror" rows="2">{{ old('address') }}</textarea>
-                             @error('address', 'addBank')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                        </div> 
-                    </div>
-
-                    <hr class="my-4">
-
-                    <!-- Section: COA Mapping -->
-                    <h6 class="fw-bold text-secondary text-uppercase small mb-3">Chart of Accounts Mapping</h6>
-                    <div class="alert alert-light border small text-muted mb-3">
-                        <i class="bi bi-diagram-3 me-1"></i> A corresponding account will be created in your General Ledger.
-                    </div>
-
-                    <div class="row g-3">
-                        <div class="col-md-4">
-                            <label class="form-label">GL Code <span class="text-danger">*</span></label>
-                            <input type="text" name="coa_code" class="form-control @error('coa_code', 'addBank') is-invalid @enderror" value="{{ old('coa_code') }}" placeholder="e.g. 1010" required>
-                             @error('coa_code', 'addBank')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
+                            <label class="form-label small text-muted">Account Number</label>
+                            <input type="text" name="account_number" class="form-control" required>
                         </div>
-                        <div class="col-md-8">
-                            <label class="form-label">GL Account Name <span class="text-danger">*</span></label>
-                            <input type="text" name="coa_name" class="form-control @error('coa_name', 'addBank') is-invalid @enderror" value="{{ old('coa_name') }}" placeholder="e.g. Cash in Bank - BDO" required>
-                             @error('coa_name', 'addBank')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
+                        
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Swift Code</label>
+                            <input type="text" name="swift_code" class="form-control">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Type <span class="text-danger">*</span></label>
-                            <select name="coa_type" class="form-select @error('coa_type', 'addBank') is-invalid @enderror" required>
-                                <option value="asset" selected>Asset</option>
-                                <option value="liability">Liability</option>
-                                <option value="equity">Equity</option>
-                                <option value="revenue">Revenue</option>
-                                <option value="expense">Expense</option>
-                            </select>
+                            <label class="form-label small text-muted">BRSTN / Branch Code</label>
+                            <input type="text" name="branch_code" class="form-control">
                         </div>
-                         <div class="col-md-6">
-                            <label class="form-label">Subtype</label>
-                            <input type="text" name="coa_subtype" class="form-control @error('coa_subtype', 'addBank') is-invalid @enderror" value="{{ old('coa_subtype', 'Cash & Bank') }}" placeholder="e.g. Cash & Bank">
-                             @error('coa_subtype', 'addBank')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
+                        <div class="col-12">
+                            <label class="form-label small text-muted">Bank Address</label>
+                            <input type="text" name="address" class="form-control">
+                        </div>
+                        
+                        {{-- Auto-generate COA Warning --}}
+                        <div class="col-12 mt-3">
+                            <div class="alert alert-info py-2 small mb-0">
+                                <i class="bi bi-info-circle me-1"></i> A linked Chart of Accounts ledger will be automatically created.
+                            </div>
                         </div>
                     </div>
-
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Add Bank & Account</button>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Account</button>
                 </div>
             </div>
         </form>
     </div>
 </div>
 
-<!-- Modal: Edit Bank Account -->
+{{-- EDIT BANK MODAL --}}
 <div class="modal fade" id="editBankModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <form id="editBankForm" method="POST">
+    <div class="modal-dialog">
+        <form action="" method="POST" id="editBankForm">
             @csrf
             @method('PUT')
-            
-            <!-- Hidden ID to restore state on error -->
-            <input type="hidden" name="bank_id" id="edit_bank_id_hidden" value="{{ old('bank_id') }}">
-
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title fw-bold">Edit Bank Account</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="alert alert-info py-2 small mb-3">
-                        <i class="bi bi-info-circle me-1"></i> Updating these details will also update the name and description of the linked General Ledger account to ensure consistency.
-                    </div>
-
                     <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Bank Name <span class="text-danger">*</span></label>
-                            <input type="text" name="bank_name" id="edit_bank_name" class="form-control @error('bank_name', 'updateBank') is-invalid @enderror" value="{{ old('bank_name') }}" required>
-                            @error('bank_name', 'updateBank')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
+                        <div class="col-12">
+                            <label class="form-label small text-muted">Bank Name</label>
+                            <input type="text" name="bank_name" id="edit_bank_name" class="form-control" required>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Account Holder <span class="text-danger">*</span></label>
-                            <input type="text" name="account_name" id="edit_account_name" class="form-control @error('account_name', 'updateBank') is-invalid @enderror" value="{{ old('account_name') }}" required>
-                             @error('account_name', 'updateBank')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
+                            <label class="form-label small text-muted">Account Name</label>
+                            <input type="text" name="account_name" id="edit_account_name" class="form-control" required>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Account Number <span class="text-danger">*</span></label>
-                            <input type="text" name="account_number" id="edit_account_number" class="form-control @error('account_number', 'updateBank') is-invalid @enderror" value="{{ old('account_number') }}" required>
-                             @error('account_number', 'updateBank')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Currency <span class="text-danger">*</span></label>
-                            <select name="currency" id="edit_currency" class="form-select @error('currency', 'updateBank') is-invalid @enderror">
-                            @foreach($currencies as $code => $name)
-                                <option value="{{ $code }}" {{ (old('currency') == $code) ? 'selected' : '' }}>{{ $code }} - {{ $name }}</option>
-                            @endforeach
-                            </select>
-                             @error('currency', 'updateBank')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Branch Code</label>
-                            <input type="text" name="branch_code" id="edit_branch_code" class="form-control @error('branch_code', 'updateBank') is-invalid @enderror" value="{{ old('branch_code') }}">
-                             @error('branch_code', 'updateBank')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Swift Code</label>
-                            <input type="text" name="swift_code" id="edit_swift_code" class="form-control @error('swift_code', 'updateBank') is-invalid @enderror" value="{{ old('swift_code') }}">
-                             @error('swift_code', 'updateBank')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
+                            <label class="form-label small text-muted">Currency</label>
+                            <input type="text" name="currency" id="edit_currency" class="form-control bg-light" readonly>
                         </div>
                         <div class="col-12">
-                            <label class="form-label">Bank Address</label>
-                            <textarea name="address" id="edit_address" class="form-control @error('address', 'updateBank') is-invalid @enderror" rows="2">{{ old('address') }}</textarea>
-                             @error('address', 'updateBank')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                        </div> 
+                            <label class="form-label small text-muted">Account Number</label>
+                            <input type="text" name="account_number" id="edit_account_number" class="form-control" required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Swift Code</label>
+                            <input type="text" name="swift_code" id="edit_swift_code" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">BRSTN / Branch Code</label>
+                            <input type="text" name="branch_code" id="edit_bank_branch_code" class="form-control">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small text-muted">Bank Address</label>
+                            <input type="text" name="address" id="edit_address" class="form-control">
+                        </div>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Update Changes</button>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Update Account</button>
                 </div>
             </div>
         </form>
     </div>
 </div>
 
-<!-- Modal: Delete Confirmation -->
+{{-- DELETE/DEACTIVATE BANK MODAL --}}
 <div class="modal fade" id="deleteBankModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title fw-bold text-danger">Confirm Account Removal</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <p>You are about to remove the bank account <strong id="deleteBankName"></strong> (<span id="deleteAccountNumber"></span>).</p>
-                
-                <div class="alert alert-warning small">
-                    <h6 class="alert-heading fw-bold"><i class="bi bi-shield-lock-fill me-1"></i>Compliance Notice (Audit Trail)</h6>
-                    <hr>
-                    <p class="mt-2 mb-0">
-                        This action will only remove the bank configuration settings from this list. The financial records remain preserved in your Chart of Accounts.
-                    </p>
+    <div class="modal-dialog">
+        <form action="" method="POST" id="deleteBankForm">
+            @csrf
+            @method('DELETE')
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title text-danger fw-bold">Remove Bank Account</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-2">Are you sure you want to deactivate <strong id="delete_bank_name"></strong>?</p>
+                    <div class="alert alert-warning small mb-0">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                        <strong>Compliance Notice:</strong> <br>
+                        This account will be hidden from new transactions, but historical records will be preserved permanently for audit purposes.
+                    </div>                    
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Confirm Removal</button>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                <form id="deleteBankForm" method="POST" action="">
-                    @csrf
-                    @method('DELETE')
-                    <button type="submit" class="btn btn-danger">Confirm Removal</button>
-                </form>
-            </div>
-        </div>
+        </form>
     </div>
 </div>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
+    document.addEventListener('DOMContentLoaded', function() {
         
-        // --- Dynamic Business Types Logic ---
-        var businessTypesPH = @json($businessTypesPH);
-        var businessTypesIntl = @json($businessTypesIntl);
-        // Safely get old value or existing DB value
-        var selectedBusinessType = "{{ old('business_type', $tenant->business_type) }}";
-        
-        var countrySelect = document.getElementById('country_select');
-        var typeSelect = document.getElementById('business_type_select');
-
-        function populateBusinessTypes() {
-            var country = countrySelect.value;
-            var options = (country === 'PH') ? businessTypesPH : businessTypesIntl;
-            
-            // Clear current options
-            typeSelect.innerHTML = '<option value="" disabled>Select type...</option>';
-            
-            for (var key in options) {
-                var opt = document.createElement('option');
-                opt.value = key;
-                opt.innerHTML = options[key];
-                
-                // Keep selected value if matches
-                if (key === selectedBusinessType) {
-                    opt.selected = true;
-                }
-                typeSelect.appendChild(opt);
-            }
-        }
-
-        if(countrySelect && typeSelect) {
-            countrySelect.addEventListener('change', populateBusinessTypes);
-            // Initial load
-            populateBusinessTypes();
-        }
-
-        // --- 1. Auto-Reopen Modals on Error ---
-        @if($errors->addBank->any())
-            var addModal = new bootstrap.Modal(document.getElementById('addBankModal'));
-            addModal.show();
-        @endif
-
-        @if($errors->updateBank->any())
-            var editModal = new bootstrap.Modal(document.getElementById('editBankModal'));
-            // When reopening Edit Modal on error, we need to set the action URL properly
-            // We use the hidden input 'bank_id' which was preserved via old()
-            var bankId = "{{ old('bank_id') }}";
-            var form = document.getElementById('editBankForm');
-            // Reconstruct the URL based on the pattern used in the view
-            form.action = "{{ route('settings.organization.bank.update', 'ID_PLACEHOLDER') }}".replace('ID_PLACEHOLDER', bankId);
-            editModal.show();
-        @endif
-
-
-        // --- 2. DELETE MODAL LOGIC ---
-        var deleteBankModal = document.getElementById('deleteBankModal');
-        deleteBankModal.addEventListener('show.bs.modal', function (event) {
+        // --- Populate Edit Branch Modal ---
+        var editBranchModal = document.getElementById('editBranchModal');
+        editBranchModal.addEventListener('show.bs.modal', function (event) {
             var button = event.relatedTarget;
-            var actionUrl = button.getAttribute('data-action');
-            var bankName = button.getAttribute('data-bank-name');
-            var accountNumber = button.getAttribute('data-account-number');
-
-            var form = document.getElementById('deleteBankForm');
-            form.action = actionUrl;
-
-            document.getElementById('deleteBankName').textContent = bankName;
-            document.getElementById('deleteAccountNumber').textContent = accountNumber;
+            
+            // Map data attributes to inputs
+            document.getElementById('editBranchForm').action = button.getAttribute('data-update-url');
+            document.getElementById('edit_branch_name').value = button.getAttribute('data-branch-name');
+            document.getElementById('edit_branch_code').value = button.getAttribute('data-branch-code');
+            document.getElementById('edit_branch_tin').value = button.getAttribute('data-branch-tin');
+            document.getElementById('edit_branch_rdo').value = button.getAttribute('data-branch-rdo');
+            document.getElementById('edit_branch_address').value = button.getAttribute('data-branch-address');
+            document.getElementById('edit_branch_city').value = button.getAttribute('data-branch-city');
+            document.getElementById('edit_branch_zip').value = button.getAttribute('data-branch-zip');
+            document.getElementById('edit_branch_phone').value = button.getAttribute('data-branch-phone');
+            document.getElementById('edit_branch_email').value = button.getAttribute('data-branch-email');
+            
+            // Checkboxes
+            document.getElementById('edit_branch_active').checked = button.getAttribute('data-branch-active') == '1';
+            
+            // Handle Default Branch Logic (Cannot unset default from here, only set new one)
+            var isDefault = button.getAttribute('data-branch-default') == '1';
+            document.getElementById('edit_branch_default').checked = isDefault;
+            document.getElementById('edit_branch_default').disabled = isDefault; // Cannot untoggle, must set another branch
+            
+            if(isDefault) {
+                document.getElementById('edit_branch_active').disabled = true; // Cannot deactivate Head Office
+            } else {
+                 document.getElementById('edit_branch_active').disabled = false;
+            }
         });
 
-        // --- 3. EDIT MODAL LOGIC (Clicking Edit Button) ---
+        // --- Populate Delete Branch Modal ---
+        var deleteBranchModal = document.getElementById('deleteBranchModal');
+        deleteBranchModal.addEventListener('show.bs.modal', function (event) {
+            var button = event.relatedTarget;
+            document.getElementById('deleteBranchForm').action = button.getAttribute('data-delete-url');
+            document.getElementById('delete_branch_name').textContent = button.getAttribute('data-branch-name');
+        });
+
+        // --- Populate Edit Bank Modal ---
         var editBankModal = document.getElementById('editBankModal');
         editBankModal.addEventListener('show.bs.modal', function (event) {
             var button = event.relatedTarget;
+            document.getElementById('editBankForm').action = button.getAttribute('data-update-url');
+            document.getElementById('edit_bank_name').value = button.getAttribute('data-bank-name');
+            document.getElementById('edit_account_name').value = button.getAttribute('data-account-name');
+            document.getElementById('edit_account_number').value = button.getAttribute('data-account-number');
+            document.getElementById('edit_currency').value = button.getAttribute('data-currency');
             
-            // Only populate if triggered by a button (not by JS error reopening)
-            if (button) {
-                var updateUrl = button.getAttribute('data-update-url');
-                document.getElementById('editBankForm').action = updateUrl;
-
-                // Populate Hidden ID
-                document.getElementById('edit_bank_id_hidden').value = button.getAttribute('data-bank-id');
-
-                // Populate Fields
-                document.getElementById('edit_bank_name').value = button.getAttribute('data-bank-name');
-                document.getElementById('edit_account_name').value = button.getAttribute('data-account-name');
-                document.getElementById('edit_account_number').value = button.getAttribute('data-account-number');
-                document.getElementById('edit_currency').value = button.getAttribute('data-currency');
-                document.getElementById('edit_branch_code').value = button.getAttribute('data-branch-code');
-                document.getElementById('edit_swift_code').value = button.getAttribute('data-swift-code');
-                document.getElementById('edit_address').value = button.getAttribute('data-address');
-                
-                // Clear any existing validation errors when opening fresh
-                document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
-            }
+            // Populate new fields
+            document.getElementById('edit_swift_code').value = button.getAttribute('data-swift-code');
+            document.getElementById('edit_bank_branch_code').value = button.getAttribute('data-branch-code');
+            document.getElementById('edit_address').value = button.getAttribute('data-address');
         });
+
+        // --- Populate Delete Bank Modal ---
+        var deleteBankModal = document.getElementById('deleteBankModal');
+        deleteBankModal.addEventListener('show.bs.modal', function (event) {
+            var button = event.relatedTarget;
+            document.getElementById('deleteBankForm').action = button.getAttribute('data-delete-url');
+            document.getElementById('delete_bank_name').textContent = button.getAttribute('data-bank-name');
+        });
+
+        // --- Dynamic Country/Business Type Logic (Optional visual refinement) ---
+        const countrySelect = document.getElementById('country_select');
+        const businessSelect = document.getElementById('business_type_select');
+        
+        // Logic to swap business types could go here if full arrays were available in JS
+        // For now handled by Controller passing correct initial list.
     });
 </script>
 

@@ -15,7 +15,7 @@ return new class extends Migration
         Schema::create('journal_entries', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('tenant_id')->constrained()->onDelete('cascade');
-            $table->foreignId('branch_id')->nullable()->after('tenant_id')->constrained('branches');
+            $table->foreignUuid('branch_id')->nullable()->constrained('branches');
             $table->date('date');
             $table->date('auto_reverse_date')->nullable();
             $table->string('reference')->nullable();
@@ -26,6 +26,7 @@ return new class extends Migration
             $table->boolean('is_reversed')->default(false);
             $table->foreignUuid('created_by')->nullable()->constrained('users');
             $table->timestamps();
+            $table->softDeletes();
             $table->index(['tenant_id', 'date']);
         });
 

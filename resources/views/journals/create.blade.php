@@ -49,22 +49,33 @@
         <div class="card shadow-sm border-0 mb-4">
             <div class="card-body">
                 <div class="row g-3">
-                    <div class="col-md-3">
-                        <label class="form-label small text-muted">Reference</label>
-                        <input type="text" class="form-control bg-light" value="{{ $prefill['reference'] ?? '(Generated on Approval)' }}" disabled readonly>
-                    </div>
                     
-                    <div class="col-md-3">
+                    <div class="col-md-4">
+                        <label class="form-label small text-muted">Branch <span class="text-danger">*</span></label>
+                        <select name="branch_id" class="form-select {{ isset($journal) ? 'bg-light' : '' }}" {{ isset($journal) ? 'disabled' : 'required' }}>
+                            @foreach($branches as $branch)
+                                <option value="{{ $branch->id }}" 
+                                    {{ (old('branch_id', $journal->branch_id ?? '')) == $branch->id ? 'selected' : ($branch->is_default ? 'selected' : '') }}>
+                                    {{ $branch->name }} ({{ $branch->code }})
+                                </option>
+                            @endforeach
+                        </select>
+                        @if(isset($journal))
+                            <input type="hidden" name="branch_id" value="{{ $journal->branch_id }}">
+                        @endif
+                    </div>
+
+                    <div class="col-md-2">
                         <label class="form-label small text-muted">Date</label>
                         <input type="date" name="date" class="form-control" value="{{ old('date', $prefill['date'] ?? date('Y-m-d')) }}" required>
                     </div>
                     
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label small text-muted">Auto-reversing Date <i class="bi bi-info-circle" title="Optional: Date to auto-reverse this entry"></i></label>
                         <input type="date" name="auto_reverse_date" class="form-control" value="{{ old('auto_reverse_date', $prefill['auto_reverse_date'] ?? '') }}">
                     </div>
 
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label small text-muted">Amounts are</label>
                         <select name="tax_type" id="tax_type" class="form-select">
                             @php 
@@ -76,12 +87,16 @@
                         </select>
                     </div>
 
+                    <div class="col-md-2">
+                        <label class="form-label small text-muted">Reference Number *</label>
+                        <input type="text" class="form-control bg-light" value="{{ $prefill['reference'] ?? '(Generated on Approval)' }}" disabled readonly>
+                    </div>                   
+
                     <div class="col-12">
                         <label class="form-label small text-muted">Description</label>
-                        <input type="text" name="description" class="form-control" 
-                               value="{{ old('description', $prefill['description'] ?? '') }}" 
-                               placeholder="Summary of transaction" required>
+                        <textarea name="description" class="form-control" rows="2" placeholder="Summary of transaction" required>{{ old('description', $prefill['description'] ?? '') }}</textarea>
                     </div>
+
                 </div>
             </div>
         </div>
@@ -90,11 +105,11 @@
         <div class="card shadow-sm border-0">
             <div class="card-header bg-light py-2">
                 <div class="row text-muted small fw-bold align-items-center">
-                    <div class="col-md-2">Account</div>
+                    <div class="col-md-3">Account</div>
                     <div class="col-md-3">Description</div>
                     <div class="col-md-2">Tax Rate</div>
                     <div class="col-md-2 text-end">Debit</div>
-                    <div class="col-md-2 text-end">Credit</div>
+                    <div class="col-md-1 text-end">Credit</div>
                     <div class="col-1"></div>
                 </div>
             </div>
@@ -115,7 +130,6 @@
                             <option value="">Select Account...</option>
                             @foreach($accounts as $account)
                                 <option value="{{ $account->id }}" 
-                                    {{-- FIX: Check against array key --}}
                                     {{ ($line['account_id'] ?? '') == $account->id ? 'selected' : '' }}>
                                     {{ $account->code }} - {{ $account->name }}
                                 </option>
@@ -123,20 +137,23 @@
                         </select>
                     </div>
 
-                    <div class="col-md-2">
+                    <div class="col-md-3">
                         <input type="text" name="lines[{{ $index }}][description]" class="form-control form-control-sm" 
                                value="{{ $line['description'] ?? '' }}" placeholder="Line detail">
                     </div>              
 
                     <div class="col-md-2">
+                        {{-- Dummy Tax Rates for now if variable not passed, replace with actual $taxRates --}}
                         <select name="lines[{{ $index }}][tax_code_id]" class="form-select form-select-sm tax-select" data-rate="0">
                             <option value="" data-rate="0">No Tax (0%)</option>
-                            @foreach($taxRates as $rate)
-                                <option value="{{ $rate->id }}" data-rate="{{ $rate->rate }}" 
-                                    {{ ($line['tax_code_id'] ?? '') == $rate->id ? 'selected' : '' }}>
-                                    {{ $rate->name }} ({{ $rate->display_rate }})
-                                </option>
-                            @endforeach
+                            @if(isset($taxRates))
+                                @foreach($taxRates as $rate)
+                                    <option value="{{ $rate->id }}" data-rate="{{ $rate->rate }}" 
+                                        {{ ($line['tax_code_id'] ?? '') == $rate->id ? 'selected' : '' }}>
+                                        {{ $rate->name }} ({{ $rate->display_rate }})
+                                    </option>
+                                @endforeach
+                            @endif
                         </select>
                         <input type="hidden" name="lines[{{ $index }}][tax_amount]" class="tax-amount-input" value="{{ $line['tax_amount'] ?? 0 }}">
                     </div>
@@ -147,7 +164,7 @@
                                value="{{ $line['debit'] ?? 0 }}" onfocus="this.select()">
                     </div>
 
-                    <div class="col-md-2">
+                    <div class="col-md-1">
                         <input type="number" step="0.01" name="lines[{{ $index }}][credit]" 
                                class="form-control form-control-sm text-end credit-input" 
                                value="{{ $line['credit'] ?? 0 }}" onfocus="this.select()">
@@ -172,23 +189,23 @@
                 </div>
 
                 <div class="row g-2 p-2 align-items-center">
-                    <div class="col-md-7 text-end text-muted small">Subtotal</div>
+                    <div class="col-md-8 text-end text-muted small">Subtotal</div>
                     <div class="col-md-2 text-end text-muted small pe-4" id="display-subtotal-debit">0.00</div>
-                    <div class="col-md-2 text-end text-muted small pe-4" id="display-subtotal-credit">0.00</div>
+                    <div class="col-md-1 text-end text-muted small pe-4" id="display-subtotal-credit">0.00</div>
                     <div class="col-1"></div>
                 </div>
                 
                 <div class="row g-2 p-2 align-items-center mt-n3">
-                    <div class="col-md-7 text-end text-muted small">Tax Total</div>
+                    <div class="col-md-8 text-end text-muted small">Tax Total</div>
                     <div class="col-md-2 text-end text-muted small pe-4" id="display-tax-debit">0.00</div>
-                    <div class="col-md-2 text-end text-muted small pe-4" id="display-tax-credit">0.00</div>
+                    <div class="col-md-1 text-end text-muted small pe-4" id="display-tax-credit">0.00</div>
                     <div class="col-1"></div>
                 </div>
 
                 <div class="row g-2 p-2 align-items-center border-top bg-light">
-                    <div class="col-md-7 text-end fw-bold text-dark">Total</div>
+                    <div class="col-md-8 text-end fw-bold text-dark">Total</div>
                     <div class="col-md-2 text-end fw-bold text-dark pe-4" id="total-debit">0.00</div>
-                    <div class="col-md-2 text-end fw-bold text-dark pe-4" id="total-credit">0.00</div>
+                    <div class="col-md-1 text-end fw-bold text-dark pe-4" id="total-credit">0.00</div>
                     <div class="col-1"></div>
                 </div>
 
@@ -243,9 +260,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
             let debit = parseFloat(debitInput.value) || 0;
             let credit = parseFloat(creditInput.value) || 0;
-            let taxRate = parseFloat(taxSelect.options[taxSelect.selectedIndex].dataset.rate) || 0;
+            let taxRate = 0;
             
-            taxSelect.disabled = (taxType === 'no_tax');
+            // Safety check if taxSelect has options
+            if (taxSelect && taxSelect.selectedIndex >= 0) {
+                 taxRate = parseFloat(taxSelect.options[taxSelect.selectedIndex].dataset.rate) || 0;
+            }
+            
+            if (taxSelect) taxSelect.disabled = (taxType === 'no_tax');
             if (taxType === 'no_tax') taxRate = 0;
 
             let taxAmount = 0;
@@ -266,7 +288,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 subtotalDebit += netAmount;
                 taxTotalDebit += taxAmount;
                 grandTotalDebit += (netAmount + taxAmount);
-                taxAmountInput.value = taxAmount.toFixed(2);
+                if(taxAmountInput) taxAmountInput.value = taxAmount.toFixed(2);
             }
 
             if (credit > 0) {
@@ -284,7 +306,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 subtotalCredit += netAmount;
                 taxTotalCredit += taxAmount;
                 grandTotalCredit += (netAmount + taxAmount);
-                taxAmountInput.value = taxAmount.toFixed(2);
+                if(taxAmountInput) taxAmountInput.value = taxAmount.toFixed(2);
             }
         });
 
@@ -303,7 +325,9 @@ document.addEventListener('DOMContentLoaded', function() {
             : 'col-md-2 text-end fw-bold text-danger pe-4';
 
         document.getElementById('total-debit').className = statusClass;
-        document.getElementById('total-credit').className = statusClass;
+        document.getElementById('total-credit').className = isBalanced 
+            ? 'col-md-1 text-end fw-bold text-success pe-4' 
+            : 'col-md-1 text-end fw-bold text-danger pe-4';
     }
 
     // Event Listeners
@@ -313,7 +337,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initial runs
     calculateTotals();
-    updateRemoveButtons(); // Run on load to hide buttons if starting with 2 rows
+    updateRemoveButtons(); 
 
     // Add Line
     document.getElementById('add-line').addEventListener('click', function() {
@@ -325,15 +349,13 @@ document.addEventListener('DOMContentLoaded', function() {
             if(input.tagName === 'SELECT') input.selectedIndex = 0;
         });
 
-        // Ensure the button is visible on the new row (in case it was cloned from a hidden state)
-        // Though updateRemoveButtons will handle it, it's good practice.
         const newBtn = template.querySelector('.remove-row');
         if(newBtn) newBtn.style.display = 'inline-block';
 
         container.appendChild(template);
         lineIndex++;
         
-        updateRemoveButtons(); // Update visibility after adding
+        updateRemoveButtons(); 
     });
 
     // Remove Line
@@ -343,7 +365,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (document.querySelectorAll('.line-row').length > 2) {
                 row.remove();
                 calculateTotals();
-                updateRemoveButtons(); // Update visibility after removing
+                updateRemoveButtons(); 
             }
         }
     });

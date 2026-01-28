@@ -19,6 +19,7 @@ class BankAccount extends Model
         'swift_code',
         'tenant_id',
         'address',
+        'brstn',
         'account_id',
         'is_active'
     ];
@@ -31,6 +32,7 @@ class BankAccount extends Model
         'account_number' => 'encrypted',
         'branch_code' => 'encrypted',
         'swift_code' => 'encrypted',
+        'brstn' => 'encrypted',
         'is_active' => 'boolean',
     ];
 
